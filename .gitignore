@@ -70,3 +70,9 @@ docs/_build/
 # PyBuilder
 target/
 
+#Virtualenv
+/bin
+/lib
+/include
+/share
+
