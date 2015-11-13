@@ -1,5 +1,5 @@
 import unittest
-from imap_detach.expressions import grammar, SimpleEvaluator
+from imap_detach.expressions import SimpleEvaluator
 from imap_detach.filter import IMAPFilterGenerator
 
 
@@ -16,7 +16,7 @@ class Test(unittest.TestCase):
 
 
     def test_imap(self):
-        g=IMAPFilterGenerator(CONTEXT)
+        g=IMAPFilterGenerator()
         p=SimpleEvaluator( CONTEXT)
         t1='to ~= "myself"'
         self.assertEqual(g.parse(t1), 'TO "myself"')
@@ -47,7 +47,7 @@ class Test(unittest.TestCase):
         self.assertTrue(p.parse(t7))
         
     def test_imap2(self):
-        g=IMAPFilterGenerator(CONTEXT)
+        g=IMAPFilterGenerator()
         p=SimpleEvaluator( CONTEXT)
            
         t8='to ~= "myself" | mime ~= "image"'
@@ -64,7 +64,7 @@ class Test(unittest.TestCase):
         
     
     def test_imap3(self):
-        g=IMAPFilterGenerator(CONTEXT)
+        g=IMAPFilterGenerator()
         p=SimpleEvaluator( CONTEXT)    
         
         t='(! subject ~= "test" | from ~= "example.com") & ( ! recent |  seen)'
@@ -82,7 +82,7 @@ class Test(unittest.TestCase):
         
         
     def test_imap4(self):
-        g=IMAPFilterGenerator(CONTEXT)
+        g=IMAPFilterGenerator()
         p=SimpleEvaluator( CONTEXT)
         
         t='subject~= "test" & mime ~= "image" |  to ~= "myself"'

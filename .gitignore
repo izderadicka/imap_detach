@@ -76,3 +76,5 @@ target/
 /include
 /share
 
+/run_tests
+/man

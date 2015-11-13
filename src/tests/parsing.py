@@ -1,6 +1,7 @@
 import unittest as unit
 import parsimonious
-from imap_detach.expressions import SimpleEvaluator
+
+from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEvalError  
 
 
 JSON=r"""# JSON grammar
@@ -97,26 +98,26 @@ class Test(unit.TestCase):
         try:
             self.assertTrue(p.parse('(a="2" | b="x" & dummy="test' ))
             self.fail('Should rise parse exception')
-        except parsimonious.ParseError as e:
+        except ParserSyntaxError as e:
             print(e)
             
         try:
             self.assertTrue(p.parse('!! a="1"')) # this should not be possible  inner expression should be in ()
             self.fail('Should rise parse exception')
-        except parsimonious.ParseError as e:
+        except ParserSyntaxError as e:
             print(e)
                
         try:
             self.assertTrue(p.parse('a="2" | b="x" & dummy="test" | c' ))
             self.fail('Should rise eval exception')
-        except parsimonious.exceptions.VisitationError as e:
+        except ParserEvalError as e:
             print(e)
              
          
         try:
             self.assertTrue(p.parse('a="2" | b="x" & uni="y" ' ))
             self.fail('Should rise eval exception')
-        except parsimonious.exceptions.VisitationError as e:
+        except ParserEvalError as e:
             print(e)
             
         

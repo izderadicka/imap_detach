@@ -1,6 +1,6 @@
 import parsimonious
 from imap_detach.expressions import EvalError, grammar
-from six.moves import reduce
+from six.moves import reduce  # @UnresolvedImport
 
 
 class BoolVar(str):
@@ -20,9 +20,9 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
           'recent': BoolVar('RECENT'),
           'seen': BoolVar('SEEN')}
     
-    def __init__(self,  ctx):
+    def __init__(self):
         self.grammar=grammar()
-        self._ctx = ctx
+        
         
     def visit_name(self, node, chidren):
         return self.VARS.get(node.text, NOT_IMAP)

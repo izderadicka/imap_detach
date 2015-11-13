@@ -2,6 +2,9 @@ import parsimonious
 import six
 from imap_detach.utils import decode
 
+ParserSyntaxError = parsimonious.ParseError
+ParserEvalError = parsimonious.exceptions.VisitationError
+
 GRAMMAR=r""" # Test grammar
 expr = space or space
 or = and   more_or
@@ -14,8 +17,10 @@ value =  contains  / equals / bracketed / name
 bracketed = "(" space expr space ")"
 contains  =  name space "~="  space literal
 equals =  name space "="  space literal
-name       = ~"\w+"
+# smaller =  name space "<"  space literal
+name       = ~"[a-z]+"
 literal    = "\"" chars "\""
+# number =  ~"\d+"
 space    = " "*
 chars = ~"[^\"]*"
 
@@ -29,38 +34,13 @@ class EvalError(Exception):
         super(EvalError, self).__init__(text+ ' at position %d'%pos)
         
         
-# class Var(object):
-#     def __init__(self, name):
-#         self.name=name
-#     def eq(self, var1, var2):
-#         return var1 == var2
-#     def bool(self,v):
-#         return bool(v)
-#         
-# class StrVar (Var):
-#     def contains (self, val1, val2):
-#         if not isinstance(val1, (six.binary_type, six.string_types)) or \
-#            not isinstance(val2, (six.binary_type, six.string_types)):
-#             raise EvalError('Contains operation is valid only for string like types')
-#         val1=decode(val1).lower()
-#         val2=val2.decode(val2).lower()
-#         return val1.find(val2)
-#     
-# class ImapVar(object):
-#     def imap_name(self):
-#         return self.name.upper()
-#         
-# class ImapEq(ImapVar):
-#     def eq(self, val1, val2):
-#         return '(%s "%s")' % (self.imap_name(val1), val2)
-#     
-# class ImapStr(ImapEq):
-#     def contains(self, val1, val2):
-#         return '(%s "%s")' % (self.imap_name(val1), val2)
-#     
-# class ImapBool(ImapVar):
-#     def bool(self,v):
-#         return self.imap_name()
+def extract_err_msg(e):
+    if isinstance(e, ParserEvalError):
+        return e.args[0]
+    
+    return str(e)
+        
+        
 
 
 class SimpleEvaluator(parsimonious.NodeVisitor):
@@ -68,17 +48,30 @@ class SimpleEvaluator(parsimonious.NodeVisitor):
         self.grammar=grammar()
         self._ctx=ctx
         self._strict=strict
+    
+    @property    
+    def context(self):
+        return self._ctx
+    
+    @context.setter
+    def context(self, ctx):
+        self._ctx = ctx
         
+
+    
     def visit_name(self, node, chidren):
         if node.text in self._ctx :
-            return self._ctx[node.text]
+            val=self._ctx[node.text]
+            if isinstance(val, (six.string_types)+ (six.binary_type,)) :
+                val = decode(val).lower()
+            return val
         elif self._strict:
             raise EvalError('Unknown variable %s'%node.text, node.start)
         else:
             return ''
     
     def visit_literal(self,node, children):
-        return children[1]
+        return decode(children[1]).lower()
         
     def visit_chars(self, node, children):
         return node.text
@@ -92,9 +85,7 @@ class SimpleEvaluator(parsimonious.NodeVisitor):
     
     @binary
     def visit_contains(self, node, children):
-        a=decode(children[0]).lower()
-        b=decode(children[-1]).lower()
-        return a.find(b) > -1
+        return children[0].find(children[-1]) > -1
     
     @binary
     def visit_equals(self, node, children):

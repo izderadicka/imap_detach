@@ -3,13 +3,18 @@
 import six
 import argparse
 import imapclient
-import string
-import re
 from six import print_ as p, u
 import sys
 import pprint
 from collections import namedtuple
+import logging
+from imap_detach.mail_info import MailInfo, DUMMY_INFO
+from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEvalError,\
+    extract_err_msg
+from imap_detach.filter import IMAPFilterGenerator
+from imap_detach.download import download
 
+log=logging.getLogger()
 
 
 def split_host(host, ssl=True):
@@ -60,7 +65,7 @@ def extract_mime_info(level, body):
         if not d:
             return {}
         res={}
-        res[b'DISPOSITION']=d[0]
+        res[b'disposition']=d[0]
         res.update(conv_dict(d[1]))
         return res
         
@@ -74,39 +79,83 @@ def extract_mime_info(level, body):
         
     return info
 
-
-def main():
-    parser=argparse.ArgumentParser()
+def define_arguments(parser):
+    parser.add_argument('filter', help='Filter for mail parts to get, simple expression with variables comparison ~=, =  logical operators & | ! and brackets ')
     parser.add_argument('-H', '--host', help="IMAP server - host name or host:port", required=True)
     parser.add_argument('-u', '--user', help='User name', required=True)
     parser.add_argument('-p', '--password', help='User password')
+    parser.add_argument('--folder', default='INBOX', help='mail folder, default is INBOX')
+    parser.add_argument('--file-name', help="Pattern for outgoing files - support {var} replacement - same variables as for filter ")
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
     
+    parser.add_argument('--debug', action="store_true", help= 'Debug logging')
+    parser.add_argument('--test', action="store_true", help= ' Do not download and process - just show found email parts')
+    
+
+def main():
+    parser=argparse.ArgumentParser(epilog="Variables for filter: \n%s" % ' '.join(sorted(DUMMY_INFO.keys())))
+    define_arguments(parser)
     opts=parser.parse_args()
     host, port= split_host(opts.host, ssl=not opts.no_ssl)
-    c=imapclient.IMAPClient(host,port, ssl= not opts.no_ssl)
-    try:
-        c.login(opts.user, opts.password)
     
-        selected=c.select_folder('INBOX')
-        if selected[b'EXISTS']>0:
-            messages=c.search('NOT DELETED') 
-            res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
-            for msgid, data in   six.iteritems(res):
-                body=data[b'BODYSTRUCTURE']
-                p(msgid,'-'*40)
-                for info in walker(body):
-                    p(info)
-#                 part_id=b'BODY[1.2]'
-#                 part=c.fetch(msgid, [part_id])
-#                 p(part[msgid][part_id][:80*5])
-                
-                
-               
+    # test filter parsing
+    eval_parser=SimpleEvaluator(DUMMY_INFO)
+    filter=opts.filter
+    try:
+        imap_filter=IMAPFilterGenerator().parse(filter)
+        _ = eval_parser.parse(filter)
+    
+    except ParserSyntaxError as e:
+        msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
+        log.error(msg)
+#        p(msg, file=sys.stderr)
+        sys.exit(1)
         
+    except ParserEvalError as e:
+        msg = "Invalid sematic of filter: %s" % extract_err_msg(e)
+        log.error(msg)
+        #p(msg, file=sys.stderr)
+        sys.exit(2)
+        
+    
+    try:
+        c=imapclient.IMAPClient(host,port, ssl= not opts.no_ssl)
+        try:
+            c.login(opts.user, opts.password)
+            selected=c.select_folder(opts.folder)
+            msg_count=selected[b'EXISTS']
+            if msg_count>0:
+                log.debug('Folder %s has %d messages', opts.folder, msg_count  )
+                messages=c.search(imap_filter or 'ALL') 
+                res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
+                for msgid, data in   six.iteritems(res):
+                    body=data[b'BODYSTRUCTURE']
+                    msg_info=MailInfo(data)
+                    log.debug('Got message %s', msg_info)
+                    for part_info in walker(body):
+                        if part_info.type == b'MULTIPART':
+                            log.debug('Multipart - %s', part_info.sub_type)
+                        else:
+                            log.debug('Message part %s', part_info)
+                            msg_info.update_part_info(part_info)
+                            eval_parser.context=msg_info
+                            if eval_parser.parse(opts.filter):
+                                log.debug('Will process this part')
+                                if opts.test:
+                                    p('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
+                                else:
+                                    p(msg_info)
+                                    download(msgid, part_info, msg_info, opts.file_name, client=c)
+                            else:
+                                log.debug('Will skip this part')
+                                
+            else:
+                log.info('No messages in folder %s', opts.folder)               
+        finally:
+            c.logout()
             
-    finally:
-        c.logout()
+    except Exception:
+        log.exception('Runtime Error')     
     
     
     
