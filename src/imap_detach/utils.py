@@ -7,6 +7,8 @@ def decode(s):
     return s
 
 def email_decode(s):
+    if not s:
+        return six.u('')
     if isinstance(s, six.binary_type):
         s=s.decode('ascii')
     l=decode_header(s)

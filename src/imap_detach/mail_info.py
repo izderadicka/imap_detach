@@ -2,6 +2,9 @@ import six
 from imap_detach.utils import decode, email_decode
 from imapclient.response_types import Address
 
+import logging
+log=logging.getLogger('mail_info')
+
 def format_addresses(adr):
     def faddr(a):
         if not a.mailbox:
@@ -34,6 +37,7 @@ class MailInfo(dict):
         self['recent'] = b'\\Recent' in flags
         self['draft'] = b'\\Draft' in flags
         envelope=search_response[b'ENVELOPE']
+        #log.debug('ENVELOPE %s', envelope)
         self['subject'] = email_decode(envelope.subject)
         self['from'] = format_addresses(envelope.from_)
         self['sender'] = format_addresses(envelope.sender)

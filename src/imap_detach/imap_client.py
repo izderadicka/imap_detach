@@ -80,11 +80,13 @@ def extract_mime_info(level, body):
         return t[i]
         
         
-    #log.debug('Body info $s', body)        
+    #log.debug('Body info %s', body)        
     if isinstance(body[0], list):
         info= MultiBodyInfo(level, b'MULTIPART', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
     elif body[0]==b'TEXT':
         info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], body[8], conv_disp(body[9]), get(body,10), get(body,11),  )
+    elif body[0]==b'MESSAGE' and body[1]==b'RFC822':
+        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], None, get(body,9), get(body,10) )
     else:
         info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], conv_disp(body[8]), get(body,9), get(body,10) )
         
