@@ -75,6 +75,4 @@ target/
 /lib
 /include
 /share
-
-/run_tests
 /man
