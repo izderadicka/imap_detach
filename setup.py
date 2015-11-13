@@ -11,8 +11,7 @@ except ImportError:
     from distutils.core import setup
    
     
-pkg_file= os.path.join(os.path.split(__file__)[0], 'src', 'xapi_back', '__init__.py')
-cfg_file= os.path.join(os.path.split(__file__)[0], 'xapi-back.cfg.sample')
+pkg_file= os.path.join(os.path.split(__file__)[0], 'src', 'imap_detach', '__init__.py')
 
 m=re.search(r"__version__\s*=\s*'([\d.]+)'", open(pkg_file).read())
 if not m:
@@ -28,11 +27,10 @@ setup(name='imap_detach',
       description='Sample package',
       package_dir={'':'src'},
       packages=['imap_detach', ],
-      scripts=[],
+      scripts=['src/detach.py'],
       author='Ivan Zderadicka',
       author_email='ivan.zderadicka@gmail.com',
 #      requires= ['tabulate (>=0.7.3)',],
- #     install_requires=['tabulate>=0.7.3',],
+#     install_requires=['tabulate>=0.7.3',],
       provides=['imap_detach']
-     
       )
