@@ -14,7 +14,7 @@ from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEv
 from imap_detach.filter import IMAPFilterGenerator
 from imap_detach.download import download
 
-log=logging.getLogger()
+log=logging.getLogger('imap_client')
 
 
 def split_host(host, ssl=True):
@@ -87,7 +87,7 @@ def define_arguments(parser):
     parser.add_argument('--folder', default='INBOX', help='mail folder, default is INBOX')
     parser.add_argument('--file-name', help="Pattern for outgoing files - support {var} replacement - same variables as for filter ")
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
-    
+    parser.add_argument('-v', '--verbose', action="store_true", help= 'Verbose messaging')
     parser.add_argument('--debug', action="store_true", help= 'Debug logging')
     parser.add_argument('--test', action="store_true", help= ' Do not download and process - just show found email parts')
     
@@ -96,6 +96,11 @@ def main():
     parser=argparse.ArgumentParser(epilog="Variables for filter: \n%s" % ' '.join(sorted(DUMMY_INFO.keys())))
     define_arguments(parser)
     opts=parser.parse_args()
+    if opts.verbose:
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+    if opts.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    
     host, port= split_host(opts.host, ssl=not opts.no_ssl)
     
     # test filter parsing
@@ -144,7 +149,7 @@ def main():
                                 if opts.test:
                                     p('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
                                 else:
-                                    p(msg_info)
+                                    log.info('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
                                     download(msgid, part_info, msg_info, opts.file_name, client=c)
                             else:
                                 log.debug('Will skip this part')
