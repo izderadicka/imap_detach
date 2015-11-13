@@ -14,9 +14,14 @@ RE_SKIP=re.compile('["]')
 def escape_path(p):
     return RE_REPLACE.sub('_', RE_SKIP.sub('',p))
     
-
-
 def download(msgid, part_info, msg_info, filename, command=None, client=None):
+    try:
+        _download(msgid, part_info, msg_info, filename, command, client)
+    except Exception:
+        log.exception('Download failed')
+
+def _download(msgid, part_info, msg_info, filename, command=None, client=None):
+    log.debug('PART INFO %s', part_info)
     part_id=('BODY[%s]'%part_info.section).encode('ascii')
     v={v: (escape_path(x) if isinstance(x, six.text_type) else str(x)) for v,x in six.iteritems(msg_info) }
     fname=(filename or '').format(**v)
@@ -33,9 +38,19 @@ def download(msgid, part_info, msg_info, filename, command=None, client=None):
         return
     part=client.fetch(msgid, [part_id])
     part=part[msgid][part_id]
-    if decode(part_info.encoding) == 'base64':
+    if decode(part_info.encoding).lower() == 'base64':
+        
+        missing_padding = 4 - len(part) % 4
+        #log.debug ('PAD1: %d %d, %s', len(part), missing_padding, part[-8:]) 
+        if missing_padding and missing_padding < 3:
+            part += b'='* missing_padding
+        elif missing_padding == 3:
+            log.error('Invalid padding on file %s  - can be damaged,  part %s %s of message "%s" from %s',
+                      fname, part_info.section, msg_info['mime'], msg_info['subject'], msg_info['from'])
+            part=part[:-1]
+        #log.debug ('PAD2 %d %d, %s',len(part), missing_padding, part[-8:]) 
         part=b64decode(part)
-    elif decode(part_info.encoding) == 'quoted-printable':
+    elif decode(part_info.encoding).lower() == 'quoted-printable':
         part=decodestring(part)
         
     with open(fname, 'wb') as f:

@@ -1,9 +1,13 @@
 import six
-from imap_detach.utils import decode
+from imap_detach.utils import decode, email_decode
 from imapclient.response_types import Address
 
 def format_addresses(adr):
     def faddr(a):
+        if not a.mailbox:
+            return ''
+        if not a.host:
+            return decode(a.mailbox)
         return decode(a.mailbox + b'@' + a.host)
     if not adr:
         return ''
@@ -30,7 +34,7 @@ class MailInfo(dict):
         self['recent'] = b'\\Recent' in flags
         self['draft'] = b'\\Draft' in flags
         envelope=search_response[b'ENVELOPE']
-        self['subject'] = decode(envelope.subject)
+        self['subject'] = email_decode(envelope.subject)
         self['from'] = format_addresses(envelope.from_)
         self['sender'] = format_addresses(envelope.sender)
         self['to'] = format_addresses(envelope.to)
@@ -43,9 +47,11 @@ class MailInfo(dict):
     def update_part_info(self, part_info):
         self['mime']= format_mime(part_info.type, part_info.sub_type )
         self['size'] = part_info.size
-        self['name'] = decode(part_info.params.get(b'name', '') if part_info.params else '')
-        att=part_info.disposition and part_info.disposition.get( b'disposition')
-        att=decode(att).lower() if att else None
+        name = email_decode(part_info.params.get('name', '') if part_info.params else '')
+        filename = email_decode(part_info.disposition.get('filename', '') if part_info.disposition else '')
+        self['name'] = name or filename
+        att=part_info.disposition and part_info.disposition.get('disposition')
+        att=att.lower() if att else None
         self['attached'] = (att== 'attachment')
         
         

@@ -13,6 +13,11 @@ from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEv
     extract_err_msg
 from imap_detach.filter import IMAPFilterGenerator
 from imap_detach.download import download
+from imap_detach.utils import decode
+
+#increase message size limit
+import imaplib
+imaplib._MAXLINE = 100000
 
 log=logging.getLogger('imap_client')
 
@@ -58,24 +63,30 @@ def extract_mime_info(level, body):
             raise ValueError('Expected tuple as value')
         res={}
         for i in range(0,len(d)-1, 2):
-            res[d[i]]=d[i+1]
+            res[decode(d[i]).lower()]=decode(d[i+1])
         return res
             
     def conv_disp(d):
         if not d:
             return {}
         res={}
-        res[b'disposition']=d[0]
+        res['disposition']=decode(d[0])
         res.update(conv_dict(d[1]))
         return res
+
+    def get(t,i):
+        if i >= len(t):
+            return None
+        return t[i]
         
-            
+        
+    #log.debug('Body info $s', body)        
     if isinstance(body[0], list):
-        info= MultiBodyInfo(level, b'MULTIPART', body[1], conv_dict(body[2]), conv_disp(body[3]), body[4], body[5])
+        info= MultiBodyInfo(level, b'MULTIPART', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
     elif body[0]==b'TEXT':
-        info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], body[8], conv_disp(body[9]), body[10], body[11],  )
+        info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], body[8], conv_disp(body[9]), get(body,10), get(body,11),  )
     else:
-        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], conv_disp(body[8]), body[9], body[10] )
+        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], conv_disp(body[8]), get(body,9), get(body,10) )
         
     return info
 
@@ -85,7 +96,7 @@ def define_arguments(parser):
     parser.add_argument('-u', '--user', help='User name', required=True)
     parser.add_argument('-p', '--password', help='User password')
     parser.add_argument('--folder', default='INBOX', help='mail folder, default is INBOX')
-    parser.add_argument('--file-name', help="Pattern for outgoing files - support {var} replacement - same variables as for filter ")
+    parser.add_argument('-f','--file-name', default='{name}', help="Pattern for outgoing files - support {var} replacement - same variables as for filter, default is name of attachment")
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
     parser.add_argument('-v', '--verbose', action="store_true", help= 'Verbose messaging')
     parser.add_argument('--debug', action="store_true", help= 'Debug logging')
@@ -102,6 +113,7 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     
     host, port= split_host(opts.host, ssl=not opts.no_ssl)
+    
     
     # test filter parsing
     eval_parser=SimpleEvaluator(DUMMY_INFO)

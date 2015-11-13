@@ -44,6 +44,7 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
             
     @binary    
     def visit_contains(self, node, children):
+        txt=children[-1].encode('ascii')
         return "%s %s" % (children[0], children[-1])
        
     visit_equals = visit_contains
