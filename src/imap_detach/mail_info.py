@@ -1,5 +1,5 @@
 import six
-from imap_detach.utils import decode, email_decode
+from imap_detach.utils import decode, email_decode, lower_safe
 from imapclient.response_types import Address
 
 import logging
@@ -50,13 +50,17 @@ class MailInfo(dict):
             
     def update_part_info(self, part_info):
         self['mime']= format_mime(part_info.type, part_info.sub_type )
-        self['size'] = part_info.size
+        sz=part_info.size
+        if lower_safe(part_info.encoding) == 'base64':
+            sz= (sz // 4) * 3  # aproximate would be enough - for exact size we'll need to check padding
+        self['size'] = sz
         name = email_decode(part_info.params.get('name', '') if part_info.params else '')
         filename = email_decode(part_info.disposition.get('filename', '') if part_info.disposition else '')
         self['name'] = name or filename
         att=part_info.disposition and part_info.disposition.get('disposition')
         att=att.lower() if att else None
         self['attached'] = (att== 'attachment')
+        self['section'] = part_info.section
         
         
 import datetime        
@@ -74,4 +78,5 @@ DUMMY_INFO={'to': 'ivan@example.com',
             'draft': False, 
             'recent': False, 
             'date': datetime.datetime(2015, 10, 27, 11, 11, 8), 
-            'name': 'test_file.zip'}
+            'name': 'test_file.zip',
+            'section': '2.1'}

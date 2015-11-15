@@ -1,7 +1,7 @@
 import parsimonious
 from imap_detach.expressions import EvalError, grammar
 from six.moves import reduce  # @UnresolvedImport
-from imap_detach.utils import to_datetime, to_imap_date
+from imap_detach.utils import to_datetime, to_imap_date, to_int
 from datetime import datetime, date
 
 
@@ -47,6 +47,15 @@ class DateVar(SpecialVar):
     def bigger_equal(self,val):
         d=to_imap_date(val)
         return "SINCE %s" % d
+    
+class SizeVar(SpecialVar):
+    
+    def bigger(self,val):
+        if not isinstance(val, int):
+            raise ValueError('Need integer value')
+        return 'LARGER %d' % val
+    
+    bigger_equal=bigger
 
 NOT_IMAP=NotIMAP('')
 
@@ -62,7 +71,8 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
           'deleted': BoolVar('DELETED'),
           'draft' : BoolVar('DRAFT'),
           'recent' : BoolVar('RECENT'),
-          'date' : DateVar()
+          'date' : DateVar(),
+          'size' : SizeVar()
           }
     
     def __init__(self):
@@ -76,7 +86,7 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
         return '"%s"'%children[1]
     
     def visit_number(self, node, children):
-        return int(node.text)
+        return to_int(node.text)
     
     def visit_date(self,node, children):
         return to_datetime(node.text)

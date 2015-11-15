@@ -7,6 +7,10 @@ def decode(s):
         return s.decode('UTF-8')
     return s
 
+def lower_safe(s):
+    return decode(s).lower()
+
+
 def email_decode(s):
     if not s:
         return six.u('')

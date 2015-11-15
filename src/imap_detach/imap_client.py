@@ -17,6 +17,7 @@ from imap_detach.utils import decode
 
 #increase message size limit
 import imaplib
+from argparse import RawTextHelpFormatter
 imaplib._MAXLINE = 100000
 
 log=logging.getLogger('imap_client')
@@ -84,11 +85,11 @@ def extract_mime_info(level, body):
     if isinstance(body[0], list):
         info= MultiBodyInfo(level, b'MULTIPART', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
     elif body[0]==b'TEXT':
-        info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], body[8], conv_disp(body[9]), get(body,10), get(body,11),  )
+        info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], body[8], conv_disp(body[9]), get(body,10), get(body,11),  )
     elif body[0]==b'MESSAGE' and body[1]==b'RFC822':
-        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], None, get(body,9), get(body,10) )
+        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], None, get(body,9), get(body,10) )
     else:
-        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], body[6], body[7], conv_disp(body[8]), get(body,9), get(body,10) )
+        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], conv_disp(body[8]), get(body,9), get(body,10) )
         
     return info
 
@@ -104,9 +105,16 @@ def define_arguments(parser):
     parser.add_argument('--debug', action="store_true", help= 'Debug logging')
     parser.add_argument('--test', action="store_true", help= ' Do not download and process - just show found email parts')
     
+def extra_help():
+    lines=[]
+    lines.append("Variables for filter: %s" % ' '.join(sorted(DUMMY_INFO.keys())))
+    lines.append("Operators for filter: = ~= (contains) ^= (starts with) $= (ends with) > < >= <= ")
+    lines.append("Date(time) format: YYYY-MM-DD or YYYY-MM-DD HH:SS - enter without quotes")
+    
+    return ('\n\n'.join(lines))
 
 def main():
-    parser=argparse.ArgumentParser(epilog="Variables for filter: \n%s" % ' '.join(sorted(DUMMY_INFO.keys())))
+    parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
     opts=parser.parse_args()
     if opts.verbose:

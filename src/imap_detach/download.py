@@ -5,7 +5,7 @@ from quopri import decodestring
 import re
 import os.path
 import shutil
-from imap_detach.utils import decode
+from imap_detach.utils import decode, lower_safe
 import logging
 log=logging.getLogger('download')
 
@@ -38,7 +38,7 @@ def _download(msgid, part_info, msg_info, filename, command=None, client=None):
         return
     part=client.fetch(msgid, [part_id])
     part=part[msgid][part_id]
-    if decode(part_info.encoding).lower() == 'base64':
+    if lower_safe(part_info.encoding) == 'base64':
         
         missing_padding = 4 - len(part) % 4
         #log.debug ('PAD1: %d %d, %s', len(part), missing_padding, part[-8:]) 
@@ -50,7 +50,7 @@ def _download(msgid, part_info, msg_info, filename, command=None, client=None):
             part=part[:-1]
         #log.debug ('PAD2 %d %d, %s',len(part), missing_padding, part[-8:]) 
         part=b64decode(part)
-    elif decode(part_info.encoding).lower() == 'quoted-printable':
+    elif lower_safe(part_info.encoding) == 'quoted-printable':
         part=decodestring(part)
         
     with open(fname, 'wb') as f:

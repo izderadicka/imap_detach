@@ -151,6 +151,29 @@ class Test(unittest.TestCase):
         self.assertEqual(g.parse(t), '(OR BEFORE 15-Nov-2015 ON 15-Nov-2015)')
         self.assertTrue(p.parse(t))
         
+        
+    def test_size(self):
+        g=IMAPFilterGenerator()
+        ctx={'size' : 5 * 1024}
+        p=SimpleEvaluator(ctx)
+        
+        t="size > 4k"
+        self.assertEqual(g.parse(t), "LARGER %d"% (4*1024))
+        self.assertTrue(p.parse(t))
+        
+        t="size >= 4k"
+        self.assertEqual(g.parse(t), "LARGER %d"% (4*1024))
+        self.assertTrue(p.parse(t))
+        
+        t="size < 4k"
+        self.assertEqual(g.parse(t), '')
+        self.assertFalse(p.parse(t))
+        
+        t="size <= 4k"
+        self.assertEqual(g.parse(t), '')
+        self.assertFalse(p.parse(t))
+        
+        
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

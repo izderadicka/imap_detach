@@ -1,5 +1,4 @@
 * Implement additional filters
-	
 	* add ^= starts with comparison and $= ends with
 	* Add date filter ( in imap BEFORE ON SINCE)
 	* Add size filter ( imap can help only with LARGER)
