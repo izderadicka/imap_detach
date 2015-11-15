@@ -1,9 +1,4 @@
-* Implement additional filters
-	* add ^= starts with comparison and $= ends with
-	* Add date filter ( in imap BEFORE ON SINCE)
-	* Add size filter ( imap can help only with LARGER)
-	* Add body part number to filter
-* Update part size based on encoding (or disposition?)
+
 * Python 2 compatibility
 * Check case insensivity when processing message headers
 * Test imap  BODY TEXT search -  can it search mime, filename?
