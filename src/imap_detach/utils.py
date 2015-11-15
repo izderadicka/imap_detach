@@ -33,3 +33,13 @@ MONTHS=("Jan" , "Feb" , "Mar" , "Apr" , "May" , "Jun" ,
 
 def to_imap_date(d):
     return "%d-%s-%d" % (d.day, MONTHS[d.month-1], d.year)
+
+MULTIPLIERS={'k':1024, 'm':1024*1024,'g':1024*1024*1024 }
+def to_int(n):
+    n=n.lower()
+    if n[-1] in 'kmg':
+        m=MULTIPLIERS[n[-1]]
+        return int(n[:-1]) * m
+    else:
+        return int(n)
+    

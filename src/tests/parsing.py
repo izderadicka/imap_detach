@@ -235,9 +235,16 @@ class Test(unit.TestCase):
         self.assertTrue(p.parse('text $= "end"'))
         self.assertFalse(p.parse('text $= "start"'))
         
+    def test_12(self):
         
+        p=SimpleEvaluator({"small":100, 'large':1024*1024*10, 'kilo':1024, 'mega':1024*1024, 'giga':1024*1024*1024})
         
+        self.assertTrue(p.parse('small < 1k'))
+        self.assertFalse(p.parse('small > 1k'))
         
+        self.assertTrue(p.parse('large > 9M'))
+        
+        self.assertTrue(p.parse('kilo=1k & mega=1M & giga=1G'))
         
             
         

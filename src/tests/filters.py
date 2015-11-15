@@ -142,7 +142,6 @@ class Test(unittest.TestCase):
         self.assertEqual(g.parse(t), '(OR BEFORE 15-Nov-2015 ON 15-Nov-2015)')
         self.assertTrue(p.parse(t))
         
-        
         t="date >= 2015-11-15"
         self.assertEqual(g.parse(t), 'SINCE 15-Nov-2015')
         self.assertTrue(p.parse(t))
@@ -152,12 +151,6 @@ class Test(unittest.TestCase):
         self.assertEqual(g.parse(t), '(OR BEFORE 15-Nov-2015 ON 15-Nov-2015)')
         self.assertTrue(p.parse(t))
         
-        
-        
-        
-        
-        
-
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

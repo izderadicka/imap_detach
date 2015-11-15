@@ -1,6 +1,6 @@
 import parsimonious
 import six
-from imap_detach.utils import decode, to_datetime
+from imap_detach.utils import decode, to_datetime, to_int
 from sqlite3.dbapi2 import Binary
 from _datetime import datetime, date
 
@@ -30,7 +30,7 @@ name       = ~"[a-z]+"
 numeric_literal = date / number
 any_literal = date / number / literal
 literal    = "\"" chars "\""
-number =  ~"\d+"
+number =  ~"\d+[kKmMgG]?"
 date = ~"\d{4}-\d{1,2}-\d{1,2}(:?\ \d{1,4}:\d{1,2})?"
 space    = " "*
 chars = ~"[^\"]*"
@@ -82,7 +82,7 @@ class SimpleEvaluator(parsimonious.NodeVisitor):
         return children[1]
     
     def visit_number(self, node, children):
-        return int(node.text)
+        return to_int(node.text)
     
     def visit_date(self, node, children):
         return to_datetime(node.text)
@@ -102,15 +102,12 @@ class SimpleEvaluator(parsimonious.NodeVisitor):
         def _inner(self, node, children):
             if not isinstance(children[0], (int, datetime, date)):
                 raise EvalError('Applicable only to number, date or datetime: %s'% node.text, node.start)
-            if isinstance(children[-1], date):
-                v=children[0]
-                children[0] = date(v.year,v.month, v.day)
             return fn(self, node, children)
         return _inner
     
     def norm_date(fn):  # @NoSelf
         def _inner(self, node, children):
-            if isinstance(children[-1], date):
+            if isinstance(children[-1], date) and not isinstance(children[-1], datetime) :
                 v=children[0]
                 children[0] = date(v.year,v.month, v.day)
             return fn(self, node, children)
