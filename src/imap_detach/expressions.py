@@ -2,7 +2,7 @@ import parsimonious
 import six
 from imap_detach.utils import decode, to_datetime
 from sqlite3.dbapi2 import Binary
-from _datetime import datetime, timedelta
+from _datetime import datetime, date
 
 ParserSyntaxError = parsimonious.ParseError
 ParserEvalError = parsimonious.exceptions.VisitationError
@@ -100,8 +100,19 @@ class SimpleEvaluator(parsimonious.NodeVisitor):
     
     def number_or_date(fn):  # @NoSelf
         def _inner(self, node, children):
-            if not isinstance(children[0], (int, datetime)):
-                raise EvalError('Applicable only to number or datetime: %s'% node.text, node.start)
+            if not isinstance(children[0], (int, datetime, date)):
+                raise EvalError('Applicable only to number, date or datetime: %s'% node.text, node.start)
+            if isinstance(children[-1], date):
+                v=children[0]
+                children[0] = date(v.year,v.month, v.day)
+            return fn(self, node, children)
+        return _inner
+    
+    def norm_date(fn):  # @NoSelf
+        def _inner(self, node, children):
+            if isinstance(children[-1], date):
+                v=children[0]
+                children[0] = date(v.year,v.month, v.day)
             return fn(self, node, children)
         return _inner
     
@@ -130,34 +141,35 @@ class SimpleEvaluator(parsimonious.NodeVisitor):
         return children[0].endswith(children[-1])
     
     @binary
+    @norm_date
     def visit_equals(self, node, children):
         a=children[0]
         b=children[-1]
-        if isinstance(b, datetime) and b.hour ==0 and b.minute ==0:
-                a=datetime(a.year,a.month, a.day)
         return a == b
     
     @binary
     @number_or_date
+    @norm_date
     def visit_smaller(self, node, children):
         return children[0] < children[-1]
     
     @binary
     @number_or_date
+    @norm_date
     def visit_smaller_equal(self, node, children):
         a=children[0]
         b=children[-1]
-#         if isinstance(b, datetime) and b.hour ==0 and b.minute ==0:
-#                 a=datetime(a.year,a.month, a.day) +timedelta(hours=23, minutes=59, seconds=59)
         return a <= b
     
     @binary
     @number_or_date
+    @norm_date
     def visit_bigger(self, node, children):
         return children[0] > children[-1]
     
     @binary
     @number_or_date
+    @norm_date
     def visit_bigger_equal(self, node, children):
         return children[0] >= children[-1]
    

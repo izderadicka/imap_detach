@@ -1,6 +1,6 @@
 import six
 from email.header import decode_header
-from datetime import datetime
+from datetime import datetime, date
 
 def decode(s):
     if isinstance(s, six.binary_type):
@@ -25,6 +25,7 @@ def to_datetime(s):
         dt= datetime.strptime(s, '%Y-%m-%d %H:%M')
     else:
         dt= datetime.strptime(s, '%Y-%m-%d')
+        dt=date(dt.year,dt.month, dt.day)
     return dt
 
 MONTHS=("Jan" , "Feb" , "Mar" , "Apr" , "May" , "Jun" ,

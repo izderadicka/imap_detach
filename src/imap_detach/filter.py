@@ -2,7 +2,7 @@ import parsimonious
 from imap_detach.expressions import EvalError, grammar
 from six.moves import reduce  # @UnresolvedImport
 from imap_detach.utils import to_datetime, to_imap_date
-from datetime import datetime
+from datetime import datetime, date
 
 
 class BoolVar(str):
@@ -18,8 +18,8 @@ class DateVar(SpecialVar):
     
     def isdate(fn):  # @NoSelf
         def _inner(self, val):
-            if not isinstance(val, datetime):
-                raise ValueError('val should be datetime')
+            if not isinstance(val, (datetime,date)):
+                raise ValueError('val should be datetime or date')
             return fn(self, val)
         return _inner
     
