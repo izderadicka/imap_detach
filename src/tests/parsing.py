@@ -1,5 +1,6 @@
 import unittest as unit
 import parsimonious
+from datetime import datetime
 
 from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEvalError  
 
@@ -101,6 +102,13 @@ class Test(unit.TestCase):
         except ParserSyntaxError as e:
             print(e)
             
+            
+        try:
+            self.assertTrue(p.parse('a > "1"' ))
+            self.fail('Should rise parse exception')
+        except ParserSyntaxError as e:
+            print(e)
+            
         try:
             self.assertTrue(p.parse('!! a="1"')) # this should not be possible  inner expression should be in ()
             self.fail('Should rise parse exception')
@@ -119,6 +127,118 @@ class Test(unit.TestCase):
             self.fail('Should rise eval exception')
         except ParserEvalError as e:
             print(e)
+            
+    def test_errors2(self):
+        p= p=SimpleEvaluator({"number":100, 'date':datetime(2015,11,15), 'string':"something"})
+        
+        try:
+            self.assertTrue(p.parse('number ~="1"' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e)
+            
+        try:
+            self.assertTrue(p.parse('number ^="1"' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e)
+            
+        try:
+            self.assertTrue(p.parse('number $="1"' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e)
+            
+        
+        try:
+            self.assertTrue(p.parse('date $="2"' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e)   
+            
+        try:
+            self.assertTrue(p.parse('string < 1' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e) 
+            
+        try:
+            self.assertTrue(p.parse('string <= 1' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e) 
+            
+        try:
+            self.assertTrue(p.parse('string > 1' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e) 
+            
+        try:
+            self.assertTrue(p.parse('string >= 1' ))
+            self.fail('Should rise eval exception')
+        except ParserEvalError as e:
+            print(e) 
+            
+            
+    def test_8(self):
+        p=SimpleEvaluator({"number":100, 'date':datetime(2015,11,15), 'adate': datetime(2015,11,15,9,5)})
+        
+        self.assertFalse(p.parse("number < 9"))
+        self.assertTrue(p.parse("number < 200"))
+        self.assertTrue(p.parse("date < 2015-12-01"))
+        self.assertTrue(p.parse("date < 2015-12-1"))
+        self.assertFalse(p.parse("date < 2015-1-1"))
+        self.assertTrue(p.parse("adate < 2015-11-15 9:10"))
+        self.assertFalse(p.parse("adate < 2015-11-15 9:01"))
+        
+        self.assertTrue(p.parse("number < 200 & adate < 2015-11-15 9:10"))
+        
+    def test_9(self):
+        p=SimpleEvaluator({"number":100, 'date':datetime(2015,11,15), 'adate': datetime(2015,11,15,9,5)})
+        self.assertFalse(p.parse("adate < 2015-11-15 8:10"))
+        self.assertFalse(p.parse("adate < 2015-11-15 8:10 & number < 200  "))
+        
+        self.assertTrue(p.parse("number = 100"))
+        self.assertTrue(p.parse("date = 2015-11-15"))
+        self.assertTrue(p.parse("adate = 2015-11-15 09:05"))
+        
+        self.assertFalse(p.parse("date = 2015-11-15 01:59"))
+        self.assertFalse(p.parse("adate = 2015-11-15 09:06"))
+        
+    def test_10(self):
+        p=SimpleEvaluator({"number":100, 'date':datetime(2015,11,15), 'adate': datetime(2015,11,15,9,5)})
+        
+        self.assertFalse(p.parse("number <= 9"))
+        self.assertTrue(p.parse("number <= 100"))
+        self.assertTrue(p.parse("number <= 200"))
+        
+        self.assertTrue(p.parse("number > 9"))
+        self.assertFalse(p.parse("number > 200"))
+        
+        self.assertTrue(p.parse("number >= 9"))
+        self.assertTrue(p.parse("number >= 100"))
+        self.assertFalse(p.parse("number >= 200"))
+        
+        self.assertFalse(p.parse("date >= 2015-11-15 01:59"))
+        self.assertTrue(p.parse("date <= 2015-11-15 01:59"))
+        
+    def test_11(self):
+        p=SimpleEvaluator({"text":"start lorem ipsum neco end"})
+        self.assertFalse(p.parse('text ^= "end"'))
+        self.assertTrue(p.parse('text ^= "start"'))
+        
+        self.assertTrue(p.parse('text ^= "START"'))
+        
+        self.assertTrue(p.parse('text ~= "IPSUM"'))
+        
+        self.assertTrue(p.parse('text $= "end"'))
+        self.assertFalse(p.parse('text $= "start"'))
+        
+        
+        
+        
+        
             
         
     def test_json(self):

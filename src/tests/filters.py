@@ -1,6 +1,7 @@
 import unittest
 from imap_detach.expressions import SimpleEvaluator
 from imap_detach.filter import IMAPFilterGenerator
+from datetime import datetime
 
 
 CONTEXT={'from': 'test@example.com',
@@ -21,6 +22,11 @@ class Test(unittest.TestCase):
         t1='to ~= "myself"'
         self.assertEqual(g.parse(t1), 'TO "myself"')
         self.assertTrue(p.parse(t1))
+        
+        t1='to ^= "myself"'
+        self.assertEqual(g.parse(t1), 'TO "myself"')
+        t1='to $= "myself"'
+        self.assertEqual(g.parse(t1), 'TO "myself"')
         
         t2='mime = "image/png"'
         self.assertEqual(g.parse(t2), '')
@@ -96,6 +102,57 @@ class Test(unittest.TestCase):
         t='subject~="test" & seen | to~="myself" &  ! recent'
         self.assertEqual( g.parse(t), '(OR (SUBJECT "test" SEEN) (TO "myself" (NOT RECENT)))')
         self.assertTrue(p.parse(t))
+        
+        
+    def test_flags(self):
+        g=IMAPFilterGenerator()
+        ctx={
+             'recent': True,
+          'seen': True,
+          'answered' : True,
+          'flagged': True,
+          'deleted': True,
+          'draft' : True,
+          
+             }
+        p=SimpleEvaluator(ctx)
+        t="recent & seen & answered & flagged & deleted & draft"
+        self.assertEqual(g.parse(t), "(RECENT SEEN ANSWERED FLAGGED DELETED DRAFT)")
+        self.assertTrue(p.parse(t))
+        
+        
+    def test_date(self):
+        
+        g=IMAPFilterGenerator()
+        ctx={'date' : datetime(2015,11,15)}
+        p=SimpleEvaluator(ctx)
+        t="date = 2015-11-15"
+        self.assertEqual(g.parse(t), "ON 15-Nov-2015")
+        self.assertTrue(p.parse(t))
+        
+        t="date < 2015-11-14"
+        self.assertEqual(g.parse(t), 'BEFORE 14-Nov-2015')
+        self.assertFalse(p.parse(t))
+        
+        t="date > 2015-11-14"
+        self.assertEqual(g.parse(t), '(OR SINCE 14-Nov-2015 NOT (ON 14-Nov-2015))')
+        self.assertTrue(p.parse(t))
+        
+        t="date <= 2015-11-15"
+        self.assertEqual(g.parse(t), '(OR BEFORE 15-Nov-2015 ON 15-Nov-2015)')
+        self.assertTrue(p.parse(t))
+        
+        
+        t="date >= 2015-11-15"
+        self.assertEqual(g.parse(t), 'SINCE 15-Nov-2015')
+        self.assertTrue(p.parse(t))
+        
+        p=SimpleEvaluator({'date' : datetime(2015,11,15,15,10)})
+        t="date <= 2015-11-15"
+        self.assertEqual(g.parse(t), '(OR BEFORE 15-Nov-2015 ON 15-Nov-2015)')
+        self.assertTrue(p.parse(t))
+        
+        
         
         
         

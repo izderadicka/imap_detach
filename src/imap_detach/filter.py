@@ -1,6 +1,8 @@
 import parsimonious
 from imap_detach.expressions import EvalError, grammar
 from six.moves import reduce  # @UnresolvedImport
+from imap_detach.utils import to_datetime, to_imap_date
+from datetime import datetime
 
 
 class BoolVar(str):
@@ -8,6 +10,43 @@ class BoolVar(str):
 
 class NotIMAP(str):
     pass
+
+class SpecialVar(str):
+    pass
+
+class DateVar(SpecialVar):
+    
+    def isdate(fn):  # @NoSelf
+        def _inner(self, val):
+            if not isinstance(val, datetime):
+                raise ValueError('val should be datetime')
+            return fn(self, val)
+        return _inner
+    
+    @isdate        
+    def equals(self,val):
+        
+        return "ON %s" % to_imap_date(val)
+    
+    @isdate
+    def smaller(self,val):
+        d=to_imap_date(val)
+        return "BEFORE %s" % d
+    
+    @isdate
+    def smaller_equal(self,val):
+        d=to_imap_date(val)
+        return "(OR BEFORE %s ON %s)" % (d,d)
+    
+    @isdate
+    def bigger(self,val):
+        d=to_imap_date(val)
+        return "(OR SINCE %s NOT (ON %s))" % (d,d)
+    
+    @isdate
+    def bigger_equal(self,val):
+        d=to_imap_date(val)
+        return "SINCE %s" % d
 
 NOT_IMAP=NotIMAP('')
 
@@ -17,8 +56,14 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
           'cc': 'CC',
           'bcc': 'BCC',
           'subject': 'SUBJECT',
-          'recent': BoolVar('RECENT'),
-          'seen': BoolVar('SEEN')}
+          'seen': BoolVar('SEEN'),
+          'answered' : BoolVar('ANSWERED'),
+          'flagged': BoolVar("FLAGGED"),
+          'deleted': BoolVar('DELETED'),
+          'draft' : BoolVar('DRAFT'),
+          'recent' : BoolVar('RECENT'),
+          'date' : DateVar()
+          }
     
     def __init__(self):
         self.grammar=grammar()
@@ -29,28 +74,60 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
     
     def visit_literal(self,node, children):
         return '"%s"'%children[1]
+    
+    def visit_number(self, node, children):
+        return int(node.text)
+    
+    def visit_date(self,node, children):
+        return to_datetime(node.text)
         
     def visit_chars(self, node, children):
         return node.text
     
     def binary(fn):  # @NoSelf
         def _inner(self, node, children):
+            var=children[0]
+            op=fn.__name__.split('_',1)[1]
             if isinstance (children[0], BoolVar):
                 raise EvalError('Variable is boolean, should not be used here %s'% node.text, node.start)
             elif isinstance(children[0], NotIMAP):
                 return NOT_IMAP
+            elif isinstance(var, SpecialVar):
+                if hasattr(var, op):
+                    m=getattr(var, op)
+                    return m(children[-1])
+                else:
+                    return NOT_IMAP
             return fn(self, node, children)
         return _inner
             
-    @binary    
-    def visit_contains(self, node, children):
+    @binary   
+    def visit_equals(self, node, children): 
         txt=children[-1].encode('ascii')
-        return "%s %s" % (children[0], children[-1])
-       
-    visit_equals = visit_contains
+        return '%s %s' % (children[0], children[-1])
+    
+    visit_contains = visit_equals
+    visit_starts = visit_contains
+    visit_ends = visit_contains
    
     def visit_expr(self, node, children):
         return children[1]
+    
+    @binary
+    def visit_smaller(self, node, children):
+        return NOT_IMAP
+    
+    @binary
+    def visit_smaller_equal(self, node, children):
+        return NOT_IMAP
+    
+    @binary
+    def visit_bigger(self, node, children):
+        return NOT_IMAP
+    
+    @binary
+    def visit_bigger_equal(self, node, children):
+        return NOT_IMAP
   
     def visit_or(self, node, children):
         if any(map(lambda x:isinstance(x, NotIMAP), children)):

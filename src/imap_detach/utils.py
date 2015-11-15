@@ -1,5 +1,6 @@
 import six
 from email.header import decode_header
+from datetime import datetime
 
 def decode(s):
     if isinstance(s, six.binary_type):
@@ -17,4 +18,17 @@ def email_decode(s):
     
 
 def lower_all(*l):
-    return map(lambda x: decode(x).lower(), l)
+    return map(lambda x: decode(x).string(), l)
+
+def to_datetime(s):
+    if s.find(':')>-1:
+        dt= datetime.strptime(s, '%Y-%m-%d %H:%M')
+    else:
+        dt= datetime.strptime(s, '%Y-%m-%d')
+    return dt
+
+MONTHS=("Jan" , "Feb" , "Mar" , "Apr" , "May" , "Jun" ,
+        "Jul" , "Aug" , "Sep" , "Oct" , "Nov" , "Dec")
+
+def to_imap_date(d):
+    return "%d-%s-%d" % (d.day, MONTHS[d.month-1], d.year)

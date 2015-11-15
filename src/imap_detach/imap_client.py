@@ -123,7 +123,6 @@ def main():
     try:
         imap_filter=IMAPFilterGenerator().parse(filter)
         _ = eval_parser.parse(filter)
-    
     except ParserSyntaxError as e:
         msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
         log.error(msg)
@@ -136,7 +135,7 @@ def main():
         #p(msg, file=sys.stderr)
         sys.exit(2)
         
-    
+    log.debug('IMAP filter: %s', imap_filter) 
     try:
         c=imapclient.IMAPClient(host,port, ssl= not opts.no_ssl)
         try:
