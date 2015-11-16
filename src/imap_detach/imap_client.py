@@ -98,13 +98,15 @@ def define_arguments(parser):
     parser.add_argument('-u', '--user', help='User name', required=True)
     parser.add_argument('-p', '--password', help='User password')
     parser.add_argument('--folder', default='INBOX', help='mail folder, default is INBOX')
-    parser.add_argument('-f','--file-name', default='{name}', help="Pattern for outgoing files - support {var} replacement - same variables as for filter, default is name of attachment")
+    parser.add_argument('-f','--file-name', help="Pattern for outgoing files - supports {var} replacement - same variables as for filter")
+    parser.add_argument('-c', '--command', help='Command to be executed on downloaded file, supports {var} replacement - same variables as for filter, if output file is not specified, data are sent via standard input ')
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
     parser.add_argument('-v', '--verbose', action="store_true", help= 'Verbose messaging')
     parser.add_argument('--debug', action="store_true", help= 'Debug logging')
     parser.add_argument('--test', action="store_true", help= ' Do not download and process - just show found email parts')
     parser.add_argument('--seen', action="store_true", help= 'Marks processed messages (matching filter) as seen')
     parser.add_argument('--delete', action="store_true", help= 'Deletes processed messages (matching filter)')
+    parser.add_argument('--delete-file', action="store_true", help= 'Deletes downloaded file after command')
     parser.add_argument('--move', help= 'Moves processed messages (matching filter) to specified folder')
     
     
@@ -113,8 +115,9 @@ def extra_help():
     lines.append("Variables for filter: %s" % ' '.join(sorted(DUMMY_INFO.keys())))
     lines.append("Operators for filter: = ~= (contains) ^= (starts with) $= (ends with) > < >= <= ")
     lines.append("Date(time) format: YYYY-MM-DD or YYYY-MM-DD HH:SS - enter without quotes")
+    lines.append("Additional variables for command: file_name file_base_name file_dir")
     
-    return ('\n\n'.join(lines))
+    return ('\n'.join(lines))
 
 def main():
     def msg_action(opts):
@@ -178,7 +181,7 @@ def main():
                     
                     part_infos=process_parts(body, msg_info, eval_parser, opts.filter, opts.test)
                     if part_infos:
-                        download(msgid, part_infos, msg_info, opts.file_name,  client=c, **msg_action(opts))
+                        download(msgid, part_infos, msg_info, opts.file_name,  command= opts.command, client=c, delete=opts.delete_file, **msg_action(opts))
                     
                                 
             else:
