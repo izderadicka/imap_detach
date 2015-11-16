@@ -5,7 +5,6 @@ import argparse
 import imapclient
 from six import print_ as p, u
 import sys
-import pprint
 from collections import namedtuple
 import logging
 from imap_detach.mail_info import MailInfo, DUMMY_INFO
@@ -104,6 +103,10 @@ def define_arguments(parser):
     parser.add_argument('-v', '--verbose', action="store_true", help= 'Verbose messaging')
     parser.add_argument('--debug', action="store_true", help= 'Debug logging')
     parser.add_argument('--test', action="store_true", help= ' Do not download and process - just show found email parts')
+    parser.add_argument('--seen', action="store_true", help= 'Marks processed messages (matching filter) as seen')
+    parser.add_argument('--delete', action="store_true", help= 'Deletes processed messages (matching filter)')
+    parser.add_argument('--move', help= 'Moves processed messages (matching filter) to specified folder')
+    
     
 def extra_help():
     lines=[]
@@ -114,6 +117,19 @@ def extra_help():
     return ('\n\n'.join(lines))
 
 def main():
+    def msg_action(opts):
+        action=None
+        params=[]
+        
+        if opts.move:
+            action='move'
+            params.append(opts.move)
+        elif opts.delete:
+            action='delete'
+        elif not opts.seen:
+            action='unseen'
+        return {'message_action':action, 'message_action_args': tuple(params)}
+    
     parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
     opts=parser.parse_args()
@@ -123,7 +139,6 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     
     host, port= split_host(opts.host, ssl=not opts.no_ssl)
-    
     
     # test filter parsing
     eval_parser=SimpleEvaluator(DUMMY_INFO)
@@ -148,6 +163,8 @@ def main():
         c=imapclient.IMAPClient(host,port, ssl= not opts.no_ssl)
         try:
             c.login(opts.user, opts.password)
+            if opts.move and  not c.folder_exists(opts.move):
+                c.create_folder(opts.move)
             selected=c.select_folder(opts.folder)
             msg_count=selected[b'EXISTS']
             if msg_count>0:
@@ -158,33 +175,42 @@ def main():
                     body=data[b'BODYSTRUCTURE']
                     msg_info=MailInfo(data)
                     log.debug('Got message %s', msg_info)
-                    for part_info in walker(body):
-                        if part_info.type == b'MULTIPART':
-                            log.debug('Multipart - %s', part_info.sub_type)
-                        else:
-                            log.debug('Message part %s', part_info)
-                            msg_info.update_part_info(part_info)
-                            eval_parser.context=msg_info
-                            if eval_parser.parse(opts.filter):
-                                log.debug('Will process this part')
-                                if opts.test:
-                                    p('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
-                                else:
-                                    log.info('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
-                                    download(msgid, part_info, msg_info, opts.file_name, client=c)
-                            else:
-                                log.debug('Will skip this part')
+                    
+                    part_infos=process_parts(body, msg_info, eval_parser, opts.filter, opts.test)
+                    if part_infos:
+                        download(msgid, part_infos, msg_info, opts.file_name,  client=c, **msg_action(opts))
+                    
                                 
             else:
                 log.info('No messages in folder %s', opts.folder)               
         finally:
+            if opts.delete or opts.move:
+                c.expunge()
             c.logout()
             
     except Exception:
         log.exception('Runtime Error')     
     
     
-    
+def process_parts(body, msg_info, eval_parser, filter, test=False):
+    part_infos=[]
+    for part_info in walker(body):
+        if part_info.type == b'MULTIPART':
+            log.debug('Multipart - %s', part_info.sub_type)
+        else:
+            log.debug('Message part %s', part_info)
+            msg_info.update_part_info(part_info)
+            eval_parser.context=msg_info
+            if eval_parser.parse(filter):
+                log.debug('Will process this part')
+                if test:
+                    p('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
+                else:
+                    log.info('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
+                    part_infos.append(part_info)
+            else:
+                log.debug('Will skip this part')
+    return part_infos
 
 
 

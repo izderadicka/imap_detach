@@ -14,14 +14,37 @@ RE_SKIP=re.compile('["]')
 def escape_path(p):
     return RE_REPLACE.sub('_', RE_SKIP.sub('',p))
     
-def download(msgid, part_info, msg_info, filename, command=None, client=None):
-    try:
-        _download(msgid, part_info, msg_info, filename, command, client)
-    except Exception:
-        log.exception('Download failed')
+def download(msgid, part_infos, msg_info, filename, command=None, client=None, 
+             message_action=None, message_action_args=None):
+        def check_seen():
+            res=client.get_flags(msgid)
+            flags=res[msgid]
+            return b'\\Seen' in flags
+        
+        seen=check_seen()
+        for part_info in part_infos:
+            try:
+                msg_info.update_part_info(part_info)
+                download_part(msgid, part_info, msg_info, filename, command, client)
+            except Exception:
+                log.exception('Download failed')
+        try:
+            if message_action == 'unseen' and not seen:
+                log.debug("Marking message id: %s unseen", msgid)
+                client.remove_flags(msgid, ['\\Seen'])
+            elif message_action == 'delete':
+                log.debug("Deleting  message id: %s", msgid)
+                client.delete_messages(msgid)
+            elif message_action == 'move':
+                folder=message_action_args[0]
+                log.debug("Moving message id: %s to folder %s", msgid, folder)
+                client.copy(msgid, folder)
+                client.delete_messages(msgid)
+        except Exception:
+            log.exception('Message update failed')
 
-def _download(msgid, part_info, msg_info, filename, command=None, client=None):
-    log.debug('PART INFO %s', part_info)
+def download_part(msgid, part_info, msg_info, filename, command=None, client=None):
+
     part_id=('BODY[%s]'%part_info.section).encode('ascii')
     v={v: (escape_path(x) if isinstance(x, six.text_type) else str(x)) for v,x in six.iteritems(msg_info) }
     fname=(filename or '').format(**v)
@@ -29,6 +52,7 @@ def _download(msgid, part_info, msg_info, filename, command=None, client=None):
         log.error('No filename available for part %s %s of message "%s" from %s', 
                   part_info.section, msg_info['mime'], msg_info['subject'], msg_info['from'])
         return
+    
     dirname=os.path.dirname(filename)
     if dirname and not os.path.exists(dirname):
         os.makedirs(dirname)
@@ -38,22 +62,25 @@ def _download(msgid, part_info, msg_info, filename, command=None, client=None):
         return
     part=client.fetch(msgid, [part_id])
     part=part[msgid][part_id]
-    if lower_safe(part_info.encoding) == 'base64':
+    part=decode_part(part, part_info.encoding, fname)
+        
+    with open(fname, 'wb') as f:
+        f.write(part)
+    log.debug("Save file %s from part %s (%s, %s)", fname, part_info.section, msg_info['mime'], part_info.encoding)
+
+def decode_part(part, encoding, fname):
+    if lower_safe(encoding) == 'base64':
         
         missing_padding = 4 - len(part) % 4
         #log.debug ('PAD1: %d %d, %s', len(part), missing_padding, part[-8:]) 
         if missing_padding and missing_padding < 3:
             part += b'='* missing_padding
         elif missing_padding == 3:
-            log.error('Invalid padding on file %s  - can be damaged,  part %s %s of message "%s" from %s',
-                      fname, part_info.section, msg_info['mime'], msg_info['subject'], msg_info['from'])
+            log.error('Invalid base64 padding on file %s  - can be damaged',
+                      fname)
             part=part[:-1]
         #log.debug ('PAD2 %d %d, %s',len(part), missing_padding, part[-8:]) 
         part=b64decode(part)
-    elif lower_safe(part_info.encoding) == 'quoted-printable':
-        part=decodestring(part)
-        
-    with open(fname, 'wb') as f:
-        f.write(part)
-    log.debug("Save file %s from part %s (%s, %s)", fname, part_info.section, msg_info['mime'], part_info.encoding)
-    
+    elif lower_safe(encoding) == 'quoted-printable':
+        part=decodestring(part)  
+    return part
