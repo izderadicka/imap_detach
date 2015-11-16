@@ -19,9 +19,12 @@ Filename of save files can contain replacement strings, so for instance /home/my
 will create directories for sender and save there attachments under their file name defined in the email 
 (assuming these are attachments, which need to be specified in filter)
 
+Similarly downloaded message part can be used in command -  either through standard input or with 
+replacement string {file_name} and other replacements valid output file as described above.
+
 For help use detach.py -h 
 
-Currently alpha quality code, tested only in python 3.4
+Currently beta quality code, tested in python 3.4 and 2.7.
 
 LICENSE
 -------

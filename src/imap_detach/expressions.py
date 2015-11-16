@@ -2,7 +2,7 @@ import parsimonious
 import six
 from imap_detach.utils import decode, to_datetime, to_int
 from sqlite3.dbapi2 import Binary
-from _datetime import datetime, date
+from datetime import datetime, date
 
 ParserSyntaxError = parsimonious.ParseError
 ParserEvalError = parsimonious.exceptions.VisitationError

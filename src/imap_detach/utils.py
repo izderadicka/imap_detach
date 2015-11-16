@@ -13,12 +13,12 @@ def lower_safe(s):
 
 def email_decode(s):
     if not s:
-        return six.u('')
+        return u''
     if isinstance(s, six.binary_type):
         s=s.decode('ascii')
     l=decode_header(s)
     parts=[(p.decode(e,'replace') if e else decode(p)) for p,e in l]
-    return six.u('').join(parts)
+    return (u'' if six.PY3 else u' ').join(parts)
     
 
 def lower_all(*l):
