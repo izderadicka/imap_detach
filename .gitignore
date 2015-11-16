@@ -76,3 +76,4 @@ target/
 /include
 /share
 /man
+/.pydevproject
