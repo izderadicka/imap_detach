@@ -64,7 +64,8 @@ def download_part(msgid, part_info, msg_info, filename, command=None, client=Non
         cmd.run(part)
     except CommandRunner.Error as e:
         pass
-    log.debug('Command stdout:\n%s\nCommand stderr:\n%s\n', cmd.stdout, cmd.stderr)
+    if command:
+        log.debug('Command stdout:\n%s\nCommand stderr:\n%s\n', cmd.stdout, cmd.stderr)
         
         
     
