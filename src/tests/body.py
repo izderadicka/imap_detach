@@ -138,8 +138,8 @@ class Test(unittest.TestCase):
         for info in walker(BODY):
             p(info)
             if info.section =='2':
-                self.assertEqual(info.type, b'TEXT')
-                self.assertEqual(info.sub_type, b'CSV')
+                self.assertEqual(info.type, 'text')
+                self.assertEqual(info.sub_type, 'csv')
                 sec_2=True
         self.assertTrue(sec_2)
 

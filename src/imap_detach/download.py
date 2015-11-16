@@ -70,7 +70,7 @@ def download_part(msgid, part_info, msg_info, filename, command=None, client=Non
         
     
 def decode_part(part, encoding):
-    if lower_safe(encoding) == 'base64':
+    if encoding == 'base64':
         
         missing_padding = 4 - len(part) % 4
         #log.debug ('PAD1: %d %d, %s', len(part), missing_padding, part[-8:]) 
@@ -81,7 +81,7 @@ def decode_part(part, encoding):
             part=part[:-1]
         #log.debug ('PAD2 %d %d, %s',len(part), missing_padding, part[-8:]) 
         part=b64decode(part)
-    elif lower_safe(encoding) == 'quoted-printable':
+    elif encoding == 'quoted-printable':
         part=decodestring(part)  
     return part
 

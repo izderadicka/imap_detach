@@ -22,7 +22,7 @@ def format_addresses(adr):
     
 
 def format_mime(type, sub_type):
-    return decode(type).lower()+'/'+decode(sub_type).lower()
+    return type+'/'+sub_type
 
 class MailInfo(dict):
     def __init__(self, search_response, part_info=None):
@@ -51,14 +51,13 @@ class MailInfo(dict):
     def update_part_info(self, part_info):
         self['mime']= format_mime(part_info.type, part_info.sub_type )
         sz=part_info.size
-        if lower_safe(part_info.encoding) == 'base64':
+        if part_info.encoding == 'base64':
             sz= (sz // 4) * 3  # aproximate would be enough - for exact size we'll need to check padding
         self['size'] = sz
         name = email_decode(part_info.params.get('name', '') if part_info.params else '')
         filename = email_decode(part_info.disposition.get('filename', '') if part_info.disposition else '')
         self['name'] = name or filename
         att=part_info.disposition and part_info.disposition.get('disposition')
-        att=att.lower() if att else None
         self['attached'] = (att== 'attachment')
         self['section'] = part_info.section
         

@@ -12,7 +12,7 @@ from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEv
     extract_err_msg
 from imap_detach.filter import IMAPFilterGenerator
 from imap_detach.download import download
-from imap_detach.utils import decode
+from imap_detach.utils import decode, lower_safe
 
 #increase message size limit
 import imaplib
@@ -63,14 +63,14 @@ def extract_mime_info(level, body):
             raise ValueError('Expected tuple as value')
         res={}
         for i in range(0,len(d)-1, 2):
-            res[decode(d[i]).lower()]=decode(d[i+1])
+            res[lower_safe(d[i])]=decode(d[i+1])
         return res
             
     def conv_disp(d):
         if not d:
             return {}
         res={}
-        res['disposition']=decode(d[0])
+        res['disposition']=lower_safe(d[0])
         res.update(conv_dict(d[1]))
         return res
 
@@ -78,14 +78,16 @@ def extract_mime_info(level, body):
         if i >= len(t):
             return None
         return t[i]
+    
+    
         
-        
-    #log.debug('Body info %s', body)        
+    body = [lower_safe(p) if isinstance(p, six.binary_type) else p for p in body]    
+    log.debug('Body info %s', body)        
     if isinstance(body[0], list):
-        info= MultiBodyInfo(level, b'MULTIPART', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
-    elif body[0]==b'TEXT':
+        info= MultiBodyInfo(level, 'multipart', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
+    elif body[0]=='text':
         info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], body[8], conv_disp(body[9]), get(body,10), get(body,11),  )
-    elif body[0]==b'MESSAGE' and body[1]==b'RFC822':
+    elif body[0]=='message' and body[1]=='rfc822':
         info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], None, get(body,9), get(body,10) )
     else:
         info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], conv_disp(body[8]), get(body,9), get(body,10) )
@@ -200,7 +202,7 @@ def main():
 def process_parts(body, msg_info, eval_parser, filter, test=False):
     part_infos=[]
     for part_info in walker(body):
-        if part_info.type == b'MULTIPART':
+        if part_info.type == 'multipart':
             log.debug('Multipart - %s', part_info.sub_type)
         else:
             log.debug('Message part %s', part_info)
