@@ -103,6 +103,7 @@ def define_arguments(parser):
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
     parser.add_argument('-v', '--verbose', action="store_true", help= 'Verbose messaging')
     parser.add_argument('--debug', action="store_true", help= 'Debug logging')
+    parser.add_argument('--log-file', help="Log is written to this file (otherwise it's stdout)")
     parser.add_argument('--test', action="store_true", help= ' Do not download and process - just show found email parts')
     parser.add_argument('--seen', action="store_true", help= 'Marks processed messages (matching filter) as seen')
     parser.add_argument('--delete', action="store_true", help= 'Deletes processed messages (matching filter)')
@@ -136,10 +137,11 @@ def main():
     parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
     opts=parser.parse_args()
+
     if opts.verbose:
-        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        logging.basicConfig(level=logging.INFO, format="%(message)s", filename=opts.log_file)
     if opts.debug:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, filename=opts.log_file)
     
     host, port= split_host(opts.host, ssl=not opts.no_ssl)
     
