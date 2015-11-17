@@ -33,18 +33,36 @@ def split_host(host, ssl=True):
     return server, port
 
 
-def walker(body, level='', count=1):
+def walk_structure(body, level='', count=1, multipart=False):
+    def next_level():
+        return level+('.%d' if level else '%d')%count
     res=[]
-    if isinstance(body, list):
-        for part in body:
-            res.extend(walker(part, level+('.%d' if level else '%d')%count , count ))
+    first=body[0]
+    if isinstance(first, tuple):
+        parts=[]
+        i=0
+        while i < len (body):
+            if not isinstance(body[i], tuple):
+                break
+            parts.append(body[i])
+            i+=1
+        nbody = (parts,) + body[i:]
+        res.extend(walk_structure(nbody, level , count, multipart ))
+    if isinstance(first, (list)):
+        if multipart:
+            res.append(extract_mime_info(level, body))
+        for part in first:
+            res.extend(walk_structure(part, next_level() , 1, multipart ))
             count+=1
-    elif isinstance(body, tuple):
-        if body[0]:
-            i=1 if isinstance(body[0], list) else 0
-            info=extract_mime_info(level, body)
-            res.append(info)
-            res.extend(walker(body[0], level, 1))
+    elif isinstance(first, six.string_types+(six.binary_type,)):
+        if lower_safe(first) == 'message' and lower_safe(body[1]) == 'rfc822' and body[8] \
+            and isinstance(body[8], tuple) :
+#             if multipart:
+#                 res.append(extract_mime_info(level, body))
+            res.extend(walk_structure(body[8],level,1, multipart))
+            
+        elif first:
+            res.append(extract_mime_info(level, body))
             
     return res
 
@@ -82,7 +100,7 @@ def extract_mime_info(level, body):
     
         
     body = [lower_safe(p) if isinstance(p, six.binary_type) else p for p in body]    
-    log.debug('Body info %s', body)        
+    #log.debug('Body info %s', body)        
     if isinstance(body[0], list):
         info= MultiBodyInfo(level, 'multipart', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
     elif body[0]=='text':
@@ -201,9 +219,9 @@ def main():
     
 def process_parts(body, msg_info, eval_parser, filter, test=False):
     part_infos=[]
-    for part_info in walker(body):
-        if part_info.type == 'multipart':
-            log.debug('Multipart - %s', part_info.sub_type)
+    for part_info in walk_structure(body):
+        if part_info.type == 'multipart' or (part_info.type=='message' and part_info.sub_type =='rfc822'):
+            log.error('We should not get multiparts here - %s', part_info.sub_type)
         else:
             log.debug('Message part %s', part_info)
             msg_info.update_part_info(part_info)

@@ -1,6 +1,6 @@
 from six import print_ as p
 import unittest
-from imap_detach.imap_client import walker
+from imap_detach.imap_client import walk_structure
 
 BODY=([([(b'TEXT',
      b'PLAIN',
@@ -131,17 +131,136 @@ BODY=([([(b'TEXT',
  None,
  None)
 
+BODY2=([(b'text',
+     b'plain',
+     (b'charset', b'ISO-8859-1', b'format', b'flowed'),
+     None,
+     None,
+     b'7bit',
+     23,
+     1,
+     None,
+     None,
+     None,
+     None),
+    (b'message',
+     b'rfc822',
+     (b'name', b'Attached Message'),
+     None,
+     None,
+     b'7bit',
+     228843,
+     (b'Tue, 17 Nov 2015 06:42:04 +0100',
+      b'S prilohou',
+      ((b'Test', None, b'test', b'example.com'),),
+      ((b'Test', None, b'test', b'example.com'),),
+      ((b'Test', None, b'test', b'example.com'),),
+      ((None, None, b'test', b'example.com'),),
+      None,
+      None,
+      None,
+      b'<564ABE2C.5080008@example.com>'),
+     (((b'text',
+        b'plain',
+        (b'charset', b'ISO-8859-1', b'format', b'flowed'),
+        None,
+        None,
+        b'7bit',
+        33,
+        3,
+        None,
+        None,
+        None,
+        None),
+       (b'text',
+        b'html',
+        (b'charset', b'ISO-8859-1'),
+        None,
+        None,
+        b'7bit',
+        234,
+        11,
+        None,
+        None,
+        None,
+        None),
+       b'alternative',
+       (b'boundary', b'------------090506020908060504060000'),
+       None,
+       None,
+       None),
+      (b'application',
+       b'pdf',
+       (b'name', b'Lovosice-Praha.pdf'),
+       None,
+       None,
+       b'base64',
+       176124,
+       None,
+       (b'attachment', (b'filename', b'Lovosice-Praha.pdf')),
+       None,
+       None),
+      (b'image',
+       b'png',
+       (b'name', b'ui.png'),
+       None,
+       None,
+       b'base64',
+       50932,
+       None,
+       (b'attachment', (b'filename', b'ui.png')),
+       None,
+       None),
+      b'mixed',
+      (b'boundary', b'------------040807040203050000060506'),
+      None,
+      None,
+      None),
+     3133,
+     None,
+     (b'attachment', (b'filename', b'Attached Message')),
+     None,
+     None)],
+   b'mixed',
+   (b'boundary', b'------------000807080405000207090301'),
+   None,
+   None,
+   None)
+
 class Test(unittest.TestCase):
 
     def test(self):
         sec_2=False
-        for info in walker(BODY):
+        sec_122=False
+        for info in walk_structure(BODY):
             p(info)
             if info.section =='2':
                 self.assertEqual(info.type, 'text')
                 self.assertEqual(info.sub_type, 'csv')
                 sec_2=True
+            if info.section =='1.2.2':
+                self.assertEqual(info.type, 'image')
+                self.assertEqual(info.sub_type, 'gif')
+                sec_122=True
         self.assertTrue(sec_2)
+        self.assertTrue(sec_122)
+        
+    
+    def test_msg(self):
+        sec_2=False
+        sec_23=False
+        for info in walk_structure(BODY2, multipart=True):
+            p(info)
+            if info.section =='2':
+                self.assertEqual(info.type, 'multipart')
+                self.assertEqual(info.sub_type, 'mixed')
+                sec_2=True
+            if info.section =='2.3':
+                self.assertEqual(info.type, 'image')
+                self.assertEqual(info.sub_type, 'png')
+                sec_23=True
+        self.assertTrue(sec_2)
+        self.assertTrue(sec_23)
 
 
 if __name__ == "__main__":
