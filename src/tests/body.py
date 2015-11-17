@@ -227,6 +227,13 @@ BODY2=([(b'text',
    None,
    None)
 
+
+BODY3 =  ([(b'TEXT', b'HTML', (b'CHARSET', b'iso-8859-2'), None, None, b'QUOTED-PRINTABLE', 320, 8, 
+            None, None, None), (b'MESSAGE', b'RFC822', None, None, None, b'7BIT', 266568, None, 
+        (b'ATTACHMENT', None), None)], b'MIXED', (b'BOUNDARY', b'----=_NextPart_000_001E_01C51019.1E6EC590'), 
+          None, None)
+
+
 class Test(unittest.TestCase):
 
     def test(self):
@@ -261,6 +268,17 @@ class Test(unittest.TestCase):
                 sec_23=True
         self.assertTrue(sec_2)
         self.assertTrue(sec_23)
+        
+        
+    def test_gmail(self):
+        sec_2 = False
+        for info in walk_structure(BODY3, multipart=True):
+            p(info)
+            if info.section =='2':
+                self.assertEqual(info.type, 'message')
+                self.assertEqual(info.sub_type, 'rfc822')
+                sec_2=True
+        self.assertTrue(sec_2)
 
 
 if __name__ == "__main__":

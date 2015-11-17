@@ -17,6 +17,7 @@ from imap_detach.utils import decode, lower_safe
 #increase message size limit
 import imaplib
 from argparse import RawTextHelpFormatter
+import time
 imaplib._MAXLINE = 100000
 
 log=logging.getLogger('imap_client')
@@ -56,7 +57,7 @@ def walk_structure(body, level='', count=1, multipart=False):
             count+=1
     elif isinstance(first, six.string_types+(six.binary_type,)):
         if lower_safe(first) == 'message' and lower_safe(body[1]) == 'rfc822' and body[8] \
-            and isinstance(body[8], tuple) :
+            and isinstance(body[8], tuple) and isinstance(body[8][0], tuple):
 #             if multipart:
 #                 res.append(extract_mime_info(level, body))
             res.extend(walk_structure(body[8],level,1, multipart))
@@ -100,13 +101,13 @@ def extract_mime_info(level, body):
     
         
     body = [lower_safe(p) if isinstance(p, six.binary_type) else p for p in body]    
-    #log.debug('Body info %s', body)        
+    log.debug('Body info %s', body)        
     if isinstance(body[0], list):
         info= MultiBodyInfo(level, 'multipart', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
     elif body[0]=='text':
         info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], body[8], conv_disp(body[9]), get(body,10), get(body,11),  )
-    elif body[0]=='message' and body[1]=='rfc822':
-        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], None, get(body,9), get(body,10) )
+#     elif body[0]=='message' and body[1]=='rfc822':
+#         info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], None, get(body,9), get(body,10) )
     else:
         info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], conv_disp(body[8]), get(body,9), get(body,10) )
         
@@ -129,7 +130,7 @@ def define_arguments(parser):
     parser.add_argument('--delete', action="store_true", help= 'Deletes processed messages (matching filter)')
     parser.add_argument('--delete-file', action="store_true", help= 'Deletes downloaded file after command')
     parser.add_argument('--move', help= 'Moves processed messages (matching filter) to specified folder')
-    
+    parser.add_argument('--timeit', action="store_true", help="Will measure time tool is running and print it at the end" )
     
 def extra_help():
     lines=[]
@@ -154,6 +155,7 @@ def main():
             action='unseen'
         return {'message_action':action, 'message_action_args': tuple(params)}
     
+    start=time.time()
     parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
     opts=parser.parse_args()
@@ -215,12 +217,16 @@ def main():
             
     except Exception:
         log.exception('Runtime Error')     
+        
+    if opts.timeit:
+        p('Total Time: %f s' % (time.time()-start))
     
     
 def process_parts(body, msg_info, eval_parser, filter, test=False):
+    log.debug('Body Structure: %s', body)
     part_infos=[]
     for part_info in walk_structure(body):
-        if part_info.type == 'multipart' or (part_info.type=='message' and part_info.sub_type =='rfc822'):
+        if part_info.type == 'multipart': #or (part_info.type=='message' and part_info.sub_type =='rfc822'):
             log.error('We should not get multiparts here - %s', part_info.sub_type)
         else:
             log.debug('Message part %s', part_info)
