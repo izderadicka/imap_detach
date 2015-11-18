@@ -184,7 +184,7 @@ def main():
     try:
         imap_filter=imap_filter.encode('ascii')
     except UnicodeEncodeError:
-        log.warn('Your search contains non-ascii characters, will try UTF-8t, but it may not work on all servers')
+        log.warn('Your search contains non-ascii characters, will try UTF-8, but it may not work on all servers')
         try:
             imap_filter=imap_filter.encode('utf-8')
             charset='UTF-8'
@@ -210,7 +210,7 @@ def main():
             if msg_count>0:
                 log.debug('Folder %s has %d messages', opts.folder, msg_count  )
                 # this is workaround for imapclient 13.0 -  since it has bug in charset in search
-                messages=c._search([b'('+ imap_filter+b')'], charset)
+                messages=c._search([b'('+ (imap_filter or b'ALL') +b')'], charset)
                 if not messages:
                     log.warn('No messages found')
                 res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])

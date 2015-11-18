@@ -4,6 +4,7 @@
 * Forwarded, Spam and NoSpam flags
 * Refactor imap_client into 2 modules
 * add year, month, day to filter variables
+* setup - release in pypi
 
 
 	
