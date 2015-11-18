@@ -11,11 +11,11 @@ Build the Docker image:
 
 Run the image:
 
-    docker run --name mail -d -p 20143:143 -p 20025:25 mailtest
+    sudo docker run --name mail -d -p 20143:143 -p 20025:25 mailtest
     
     # stop start
     docker stop mail
-    docker start mail
+    sudo docker start mail
     
 The image's root password is root, and there's also a normal user named test,
 password test.  You can ssh in if you need to examine things.

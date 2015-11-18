@@ -18,6 +18,7 @@ from imap_detach.utils import decode, lower_safe
 import imaplib
 from argparse import RawTextHelpFormatter
 import time
+from _ast import Try
 imaplib._MAXLINE = 100000
 
 log=logging.getLogger('imap_client')
@@ -170,6 +171,7 @@ def main():
     # test filter parsing
     eval_parser=SimpleEvaluator(DUMMY_INFO)
     filter=opts.filter
+    
     try:
         imap_filter=IMAPFilterGenerator().parse(filter)
         _ = eval_parser.parse(filter)
@@ -178,6 +180,17 @@ def main():
         log.error(msg)
 #        p(msg, file=sys.stderr)
         sys.exit(1)
+    charset=None    
+    try:
+        imap_filter=imap_filter.encode('ascii')
+    except UnicodeEncodeError:
+        log.warn('Your search contains non-ascii characters, will try UTF-8t, but it may not work on all servers')
+        try:
+            imap_filter=imap_filter.encode('utf-8')
+            charset='UTF-8'
+        except UnicodeEncodeError as e:
+            log.error('Invalid characters in filter: %e',e)
+            sys.exit(3)   
         
     except ParserEvalError as e:
         msg = "Invalid sematic of filter: %s" % extract_err_msg(e)
@@ -196,7 +209,10 @@ def main():
             msg_count=selected[b'EXISTS']
             if msg_count>0:
                 log.debug('Folder %s has %d messages', opts.folder, msg_count  )
-                messages=c.search(imap_filter or 'ALL') 
+                # this is workaround for imapclient 13.0 -  since it has bug in charset in search
+                messages=c._search([b'('+ imap_filter+b')'], charset)
+                if not messages:
+                    log.warn('No messages found')
                 res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
                 for msgid, data in   six.iteritems(res):
                     body=data[b'BODYSTRUCTURE']
