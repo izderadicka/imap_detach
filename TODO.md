@@ -1,7 +1,7 @@
 
 * Test imap  BODY TEXT search -  can it search mime, filename?
 * Multithreaded (multiprocess?)  download - here we must also check UIDVALIDITY 
-* Forwarded, Spam and NoSpam flags
+* Other flags like -  $Forwarded, Spam and NoSpam -  IMAP filer KEYWORD?
 * Refactor imap_client into 2 modules
 * add year, month, day to filter variables
 * setup - release in pypi

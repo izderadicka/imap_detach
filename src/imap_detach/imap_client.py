@@ -132,6 +132,7 @@ def define_arguments(parser):
     parser.add_argument('--delete-file', action="store_true", help= 'Deletes downloaded file after command')
     parser.add_argument('--move', help= 'Moves processed messages (matching filter) to specified folder')
     parser.add_argument('--timeit', action="store_true", help="Will measure time tool is running and print it at the end" )
+    parser.add_argument('--no-imap-search', action="store_true", help="Will not use IMAP search - slow, but will assure exact filter match on any server")
     
 def extra_help():
     lines=[]
@@ -173,7 +174,7 @@ def main():
     filter=opts.filter
     
     try:
-        imap_filter=IMAPFilterGenerator().parse(filter)
+        imap_filter=IMAPFilterGenerator().parse(filter) if not opts.no_imap_search else ''
         _ = eval_parser.parse(filter)
     except ParserSyntaxError as e:
         msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
@@ -184,7 +185,7 @@ def main():
     try:
         imap_filter=imap_filter.encode('ascii')
     except UnicodeEncodeError:
-        log.warn('Your search contains non-ascii characters, will try UTF-8, but it may not work on all servers')
+        log.warn('Your search contains non-ascii characters, will try UTF-8, but it may not work on some servers')
         try:
             imap_filter=imap_filter.encode('utf-8')
             charset='UTF-8'
@@ -233,6 +234,7 @@ def main():
             
     except Exception:
         log.exception('Runtime Error')     
+        sys.exit(4)
         
     if opts.timeit:
         p('Total Time: %f s' % (time.time()-start))

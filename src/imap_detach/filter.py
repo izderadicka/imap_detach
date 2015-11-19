@@ -75,12 +75,13 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
           'size' : SizeVar()
           }
     
-    def __init__(self):
+    def __init__(self, unsafe=False):
         self.grammar=grammar()
+        self._vars=IMAPFilterGenerator.VARS
         
         
     def visit_name(self, node, chidren):
-        return self.VARS.get(node.text, NOT_IMAP)
+        return self._vars.get(node.text, NOT_IMAP)
     
     def visit_literal(self,node, children):
         return '"%s"'%children[1]
