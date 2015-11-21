@@ -23,14 +23,28 @@ version= m.group(1)
 
 
 setup(name='imap_detach',
-      version='version',
-      description='Sample package',
+      version=version,
+      description='A tool to automatically download attachments from IMAP mailbox',
+      url='http://zderadicka.eu/projects/python/imap_detach-tool-download-email-attachments/',
       package_dir={'':'src'},
       packages=['imap_detach', ],
       scripts=['src/detach.py'],
       author='Ivan Zderadicka',
       author_email='ivan.zderadicka@gmail.com',
-#      requires= ['tabulate (>=0.7.3)',],
-#     install_requires=['tabulate>=0.7.3',],
-      provides=['imap_detach']
+      license = 'GPL v3',
+      install_requires=['six>=1.10.0',
+                        'imapclient==0.13',  # seems to be still moving target so fixing the version
+                        'parsimonious>=0.6.2'
+                        ],
+      provides=['imap_detach'],
+      keywords=['email', 'IMAP', 'attachment'],
+      classifiers=['Development Status :: 4 - Beta',
+                   'Environment :: Console',
+                   'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+                   'Natural Language :: English',
+                   'Operating System :: POSIX',
+                   'Programming Language :: Python :: 2.7',
+                   'Programming Language :: Python :: 3.4', 
+                   'Topic :: Communications :: Email']
+      
       )

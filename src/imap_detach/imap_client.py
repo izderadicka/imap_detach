@@ -18,7 +18,6 @@ from imap_detach.utils import decode, lower_safe
 import imaplib
 from argparse import RawTextHelpFormatter
 import time
-from _ast import Try
 imaplib._MAXLINE = 100000
 
 log=logging.getLogger('imap_client')
@@ -115,7 +114,7 @@ def extract_mime_info(level, body):
     return info
 
 def define_arguments(parser):
-    parser.add_argument('filter', help='Filter for mail parts to get, simple expression with variables comparison ~=, =  logical operators & | ! and brackets ')
+    parser.add_argument('filter', help='Filter for mail parts to get, simple expression with variables comparisons ~=, = , > etc. and  logical operators & | ! and brackets ')
     parser.add_argument('-H', '--host', help="IMAP server - host name or host:port", required=True)
     parser.add_argument('-u', '--user', help='User name', required=True)
     parser.add_argument('-p', '--password', help='User password')
@@ -161,11 +160,14 @@ def main():
     parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
     opts=parser.parse_args()
-
-    if opts.verbose:
-        logging.basicConfig(level=logging.INFO, format="%(message)s", filename=opts.log_file)
+    
     if opts.debug:
         logging.basicConfig(level=logging.DEBUG, filename=opts.log_file)
+    elif opts.verbose:
+        logging.basicConfig(level=logging.INFO, format="%(message)s", filename=opts.log_file)
+    else:
+        logging.basicConfig(level=logging.ERROR, stream=sys.stderr)
+    
     
     host, port= split_host(opts.host, ssl=not opts.no_ssl)
     
@@ -241,6 +243,11 @@ def main():
     
     
 def process_parts(body, msg_info, eval_parser, filter, test=False):
+    def msg(part_info):
+        msg = u'File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info)
+        if six.PY2:
+            msg=msg.encode('ascii', 'replace')
+        return msg
     log.debug('Body Structure: %s', body)
     part_infos=[]
     for part_info in walk_structure(body):
@@ -253,9 +260,9 @@ def process_parts(body, msg_info, eval_parser, filter, test=False):
             if eval_parser.parse(filter):
                 log.debug('Will process this part')
                 if test:
-                    p('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
+                    p(msg(part_info))
                 else:
-                    log.info('File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info))
+                    log.info(msg(part_info))
                     part_infos.append(part_info)
             else:
                 log.debug('Will skip this part')

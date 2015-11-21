@@ -77,3 +77,4 @@ target/
 /share
 /man
 /.pydevproject
+/pip-selfcheck.json
