@@ -3,7 +3,6 @@
 * Multithreaded (multiprocess?)  download - here we must also check UIDVALIDITY 
 * Other flags like -  $Forwarded, Spam and NoSpam -  IMAP filer KEYWORD?
 * Refactor imap_client into 2 modules
-* add year, month, day to filter variables
 * setup - release in pypi
 
 
