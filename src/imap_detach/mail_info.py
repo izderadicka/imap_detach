@@ -27,8 +27,11 @@ def format_mime(type, sub_type):
 class MailInfo(dict):
     def __init__(self, search_response, part_info=None):
         super(MailInfo,self).__init__()
-        
-        self['date'] = search_response[b'INTERNALDATE']
+        date= search_response[b'INTERNALDATE']
+        self['date'] = date
+        self['year'] = date.year
+        self['month'] = date.month
+        self['day'] = date.day
         flags=search_response[b'FLAGS']
         self['answered']= b'\\Answered' in flags
         self['seen'] = b'\\Seen' in flags
@@ -77,5 +80,8 @@ DUMMY_INFO={'to': 'ivan@example.com',
             'draft': False, 
             'recent': False, 
             'date': datetime.datetime(2015, 10, 27, 11, 11, 8), 
+            'year': 2015,
+            'month': 10,
+            'day' : 27,
             'name': 'test_file.zip',
             'section': '2.1'}

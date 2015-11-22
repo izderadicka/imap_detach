@@ -183,6 +183,12 @@ def main():
         log.error(msg)
 #        p(msg, file=sys.stderr)
         sys.exit(1)
+    except ParserEvalError as e:
+        msg = "Invalid semantics of filter: %s" % extract_err_msg(e)
+        log.error(msg)
+        #p(msg, file=sys.stderr)
+        sys.exit(2)
+    
     charset=None    
     try:
         imap_filter=imap_filter.encode('ascii')
@@ -195,11 +201,6 @@ def main():
             log.error('Invalid characters in filter: %e',e)
             sys.exit(3)   
         
-    except ParserEvalError as e:
-        msg = "Invalid sematic of filter: %s" % extract_err_msg(e)
-        log.error(msg)
-        #p(msg, file=sys.stderr)
-        sys.exit(2)
         
     log.debug('IMAP filter: %s', imap_filter) 
     try:

@@ -26,6 +26,8 @@ For help use detach.py -h
 
 Currently beta quality code, tested in python 3.4 and 2.7.
 
+For more details visit tool's [home page](http://zderadicka.eu/projects/python/imap_detach-tool-download-email-attachments/) 
+
 LICENSE
 -------
 GPL v3
