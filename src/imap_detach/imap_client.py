@@ -13,11 +13,12 @@ from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEv
 from imap_detach.filter import IMAPFilterGenerator
 from imap_detach.download import download
 from imap_detach.utils import decode, lower_safe
+from argparse import RawTextHelpFormatter
+import time
+import imap_detach
 
 #increase message size limit
 import imaplib
-from argparse import RawTextHelpFormatter
-import time
 imaplib._MAXLINE = 100000
 
 log=logging.getLogger('imap_client')
@@ -132,7 +133,7 @@ def define_arguments(parser):
     parser.add_argument('--move', help= 'Moves processed messages (matching filter) to specified folder')
     parser.add_argument('--timeit', action="store_true", help="Will measure time tool is running and print it at the end" )
     parser.add_argument('--no-imap-search', action="store_true", help="Will not use IMAP search - slow, but will assure exact filter match on any server")
-    
+    parser.add_argument('--version', action='version', version='%s' % imap_detach.__version__)
 def extra_help():
     lines=[]
     lines.append("Variables for filter: %s" % ' '.join(sorted(DUMMY_INFO.keys())))
