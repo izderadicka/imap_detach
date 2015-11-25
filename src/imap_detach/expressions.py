@@ -1,6 +1,6 @@
 import parsimonious
 import six
-from imap_detach.utils import decode, to_datetime, to_int
+from imap_detach.utils import decode, to_datetime, to_int, lower_safe
 from sqlite3.dbapi2 import Binary
 from datetime import datetime, date
 
@@ -51,8 +51,40 @@ def extract_err_msg(e):
     
     return str(e)
         
-        
-
+class TagList(list):
+    def __init__(self, tags):  
+        super(TagList, self).__init__(map(lambda x: lower_safe(x), tags)) 
+    
+    def to_lower(fn):  # @NoSelf
+            def inner(self, tag):
+                tag=lower_safe(tag)
+                return fn(self,tag)
+            return inner
+    
+    @to_lower    
+    def __eq__(self, tag):
+        return tag in self
+    
+    @to_lower
+    def find(self, tag):
+        for i,t in enumerate(self):
+            if t.find(tag)>-1:
+                return i
+        return -1
+    
+    @to_lower
+    def startswith(self, tag):
+        for t in self:
+            if t.startswith(tag):
+                return True
+        return False
+    
+    @to_lower
+    def endswith(self, tag):
+        for t in self:
+            if t.endswith(tag):
+                return True
+        return False
 
 class SimpleEvaluator(parsimonious.NodeVisitor):
     def __init__(self, ctx, strict=True):
@@ -115,10 +147,12 @@ class SimpleEvaluator(parsimonious.NodeVisitor):
     
     def string(fn):  # @NoSelf
         def _inner(self,node, children):
-            if not isinstance(children[0], (six.string_types)+(six.binary_type,)):
+            if not isinstance(children[0], (six.string_types)+(six.binary_type,)+(TagList,)):
                 raise EvalError('Applicable only to strings: %s'% node.text, node.start)
-            a=decode(children[0]).lower()
-            b=decode(children[-1]).lower()
+            a=children[0]
+            if not isinstance(a, TagList):
+                a=lower_safe(a)
+            b=lower_safe(children[-1])
             return fn(self, node, [a,b])
         return _inner
     

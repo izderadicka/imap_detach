@@ -3,6 +3,7 @@ from imap_detach.expressions import EvalError, grammar
 from six.moves import reduce  # @UnresolvedImport
 from imap_detach.utils import to_datetime, to_imap_date, to_int
 from datetime import datetime, date
+import six
 
 
 class BoolVar(str):
@@ -13,6 +14,36 @@ class NotIMAP(str):
 
 class SpecialVar(str):
     pass
+
+class YearVar(SpecialVar):
+    def isyear(fn):  # @NoSelf
+        def _inner(self, val):
+            if not isinstance(val, int):
+                raise ValueError('val should be int')
+            if val < 1900 or val > 10000:
+                raise ValueError('val is out of range for year')
+            return fn(self, val)
+        return _inner
+    
+    @isyear
+    def equals(self, val):
+        return '(SINCE 1-Jan-%d BEFORE 1-Jan-%d)' % (val, val+1)
+    
+    @isyear
+    def smaller(self, val):
+        return 'BEFORE 1-Jan-%d' % val
+    
+    @isyear
+    def smaller_equal(self, val):
+        return 'BEFORE 1-Jan-%d' % (val+1)
+    
+    @isyear
+    def bigger(self,val):
+        return 'SINCE 1-Jan-%d' % (val+1)
+    
+    @isyear
+    def bigger_equal(self,val):
+        return 'SINCE 1-Jan-%d' % val
 
 class DateVar(SpecialVar):
     
@@ -56,6 +87,12 @@ class SizeVar(SpecialVar):
         return 'LARGER %d' % val
     
     bigger_equal=bigger
+    
+class FlagsVar(SpecialVar):
+    def equals(self,val):
+        if not isinstance(val, six.string_types):
+            raise ValueError('Need string value')
+        return 'KEYWORD %s' % val
 
 NOT_IMAP=NotIMAP('')
 
@@ -72,13 +109,17 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
           'draft' : BoolVar('DRAFT'),
           'recent' : BoolVar('RECENT'),
           'date' : DateVar(),
-          'size' : SizeVar()
+          'size' : SizeVar(),
+          'year' : YearVar()
           }
+    EXT_VARS={'flags': FlagsVar(),
+              }
     
     def __init__(self, unsafe=False):
         self.grammar=grammar()
         self._vars=IMAPFilterGenerator.VARS
-        
+        if unsafe:
+            self._vars.update(IMAPFilterGenerator.EXT_VARS)
         
     def visit_name(self, node, chidren):
         return self._vars.get(node.text, NOT_IMAP)
@@ -116,9 +157,17 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
     def visit_equals(self, node, children): 
         return '%s %s' % (children[0], children[-1])
     
-    visit_contains = visit_equals
-    visit_starts = visit_contains
-    visit_ends = visit_contains
+    @binary
+    def visit_contains (self, node, children): 
+        return '%s %s' % (children[0], children[-1])
+    
+    @binary
+    def visit_starts (self, node, children): 
+        return '%s %s' % (children[0], children[-1])
+    
+    @binary
+    def visit_ends(self, node, children): 
+        return '%s %s' % (children[0], children[-1])
    
     def visit_expr(self, node, children):
         return children[1]

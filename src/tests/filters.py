@@ -1,5 +1,5 @@
 import unittest
-from imap_detach.expressions import SimpleEvaluator
+from imap_detach.expressions import SimpleEvaluator, TagList
 from imap_detach.filter import IMAPFilterGenerator
 from datetime import datetime
 
@@ -172,6 +172,46 @@ class Test(unittest.TestCase):
         t="size <= 4k"
         self.assertEqual(g.parse(t), '')
         self.assertFalse(p.parse(t))
+        
+    def test_custom_flags(self):
+        g=IMAPFilterGenerator(unsafe=True)
+        ctx={'flags':TagList(['$Forwarded', 'NotJunk'])}
+        p=SimpleEvaluator(ctx)
+        t='flags = "$Forwarded"'
+        self.assertEqual(g.parse(t), 'KEYWORD "$Forwarded"')
+        self.assertTrue(p.parse(t))
+        
+        t='flags ^= "$Forwarded"'
+        self.assertEqual(g.parse(t), '')
+        self.assertTrue(p.parse(t))
+        
+    
+    def test_year(self):
+        g=IMAPFilterGenerator(unsafe=True)
+        ctx={'year':2015}
+        p=SimpleEvaluator(ctx)
+        
+        t='year=2015'
+        self.assertEqual(g.parse(t), '(SINCE 1-Jan-2015 BEFORE 1-Jan-2016)')
+        self.assertTrue(p.parse(t))
+        
+        t='year>2015'
+        self.assertEqual(g.parse(t), 'SINCE 1-Jan-2016')
+        self.assertFalse(p.parse(t))
+        
+        t='year>=2015'
+        self.assertEqual(g.parse(t), 'SINCE 1-Jan-2015')
+        self.assertTrue(p.parse(t))
+        
+        t='year<2016'
+        self.assertEqual(g.parse(t), 'BEFORE 1-Jan-2016')
+        self.assertTrue(p.parse(t))
+        
+        t='year<=2016'
+        self.assertEqual(g.parse(t), 'BEFORE 1-Jan-2017')
+        self.assertTrue(p.parse(t))
+        
+        
         
         
 

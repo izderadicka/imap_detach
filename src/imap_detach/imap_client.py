@@ -133,6 +133,7 @@ def define_arguments(parser):
     parser.add_argument('--move', help= 'Moves processed messages (matching filter) to specified folder')
     parser.add_argument('--timeit', action="store_true", help="Will measure time tool is running and print it at the end" )
     parser.add_argument('--no-imap-search', action="store_true", help="Will not use IMAP search - slow, but will assure exact filter match on any server")
+    parser.add_argument('--unsafe-imap-search', action="store_true", help="Advanced IMAP search features, requiring full IMAPv4 compliance, which are supported only by some servers (dovecot)")
     parser.add_argument('--version', action='version', version='%s' % imap_detach.__version__)
 def extra_help():
     lines=[]
@@ -177,7 +178,7 @@ def main():
     filter=opts.filter
     
     try:
-        imap_filter=IMAPFilterGenerator().parse(filter) if not opts.no_imap_search else ''
+        imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter) if not opts.no_imap_search else ''
         _ = eval_parser.parse(filter)
     except ParserSyntaxError as e:
         msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
