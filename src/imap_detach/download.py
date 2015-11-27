@@ -29,7 +29,7 @@ def download(msgid, part_infos, msg_info, filename, command=None, client=None, d
                 msg_info.update_part_info(part_info)
                 download_part(msgid, part_info, msg_info, filename, command, client, delete, max_time)
             except Exception:
-                log.exception('Download failed')
+                log.exception('Download of message id %d: "%s" from %s received %s,  part %s failed', msgid, msg_info['subject'], msg_info['from'], msg_info['date'], part_info.section)
         try:
             if message_action == 'unseen' and not seen:
                 log.debug("Marking message id: %s unseen", msgid)
@@ -71,16 +71,21 @@ def download_part(msgid, part_info, msg_info, filename, command=None, client=Non
     
 def decode_part(part, encoding):
     if encoding == 'base64':
-        
+        part = part.replace(b'\r\n', b'')
         missing_padding = 4 - len(part) % 4
-        #log.debug ('PAD1: %d %d, %s', len(part), missing_padding, part[-8:]) 
+        #log.debug ('PAD!! %d %d, %s',len(part), missing_padding, part[-8:]) 
         if missing_padding and missing_padding < 3:
+            log.debug ('Fixing padding: len: %d missing: %d, end: %s', len(part), missing_padding, part[-8:]) 
             part += b'='* missing_padding
         elif missing_padding == 3:
-            log.error('Invalid base64 padding on part  - can be damaged')
+            log.error('Invalid base64 length - can be damaged')
             part=part[:-1]
-        #log.debug ('PAD2 %d %d, %s',len(part), missing_padding, part[-8:]) 
-        part=b64decode(part)
+        
+        try:
+            part=b64decode(part)
+        except Exception as e:
+            log.error('B64 error: %s\nStart of data: %s\nEnd of data:%s', e, part[:500], part[-500:])
+            raise e
     elif encoding == 'quoted-printable':
         part=decodestring(part)  
     return part

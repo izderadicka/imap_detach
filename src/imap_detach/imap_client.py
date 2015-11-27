@@ -210,6 +210,8 @@ def main():
             process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts)  
             
             if pool:
+                if opts.verbose:
+                    p('Finished searching, now wait until all parts download in separate threads')
                 def report():
                     while True:
                         log.debug('Pool status - size %d, unfinished %d', pool._queue.qsize(), pool._queue.unfinished_tasks)
