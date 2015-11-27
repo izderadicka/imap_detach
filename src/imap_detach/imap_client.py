@@ -13,12 +13,14 @@ from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEv
 from imap_detach.filter import IMAPFilterGenerator
 from imap_detach.download import download
 from imap_detach.utils import decode, lower_safe
+from imap_detach.pool import Pool
 from argparse import RawTextHelpFormatter
 import time
 import imap_detach
 
 #increase message size limit
 import imaplib
+from threading import Thread
 imaplib._MAXLINE = 100000
 
 log=logging.getLogger('imap_client')
@@ -119,10 +121,11 @@ def define_arguments(parser):
     parser.add_argument('-H', '--host', help="IMAP server - host name or host:port", required=True)
     parser.add_argument('-u', '--user', help='User name', required=True)
     parser.add_argument('-p', '--password', help='User password')
+    parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
     parser.add_argument('--folder', default='INBOX', help='mail folder, default is INBOX')
     parser.add_argument('-f','--file-name', help="Pattern for outgoing files - supports {var} replacement - same variables as for filter")
     parser.add_argument('-c', '--command', help='Command to be executed on downloaded file, supports {var} replacement - same variables as for filter, if output file is not specified, data are sent via standard input ')
-    parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
+    parser.add_argument('-t', '--threads', type=int, help='Download message parts in x separate threads')
     parser.add_argument('-v', '--verbose', action="store_true", help= 'Verbose messaging')
     parser.add_argument('--debug', action="store_true", help= 'Debug logging')
     parser.add_argument('--log-file', help="Log is written to this file (otherwise it's stdout)")
@@ -145,19 +148,6 @@ def extra_help():
     return ('\n'.join(lines))
 
 def main():
-    def msg_action(opts):
-        action=None
-        params=[]
-        
-        if opts.move:
-            action='move'
-            params.append(opts.move)
-        elif opts.delete:
-            action='delete'
-        elif not opts.seen:
-            action='unseen'
-        return {'message_action':action, 'message_action_args': tuple(params)}
-    
     start=time.time()
     parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
@@ -205,33 +195,31 @@ def main():
         
         
     log.debug('IMAP filter: %s', imap_filter) 
+    pool=None
     try:
-        c=imapclient.IMAPClient(host,port, ssl= not opts.no_ssl)
+        ssl=not opts.no_ssl
+        c=imapclient.IMAPClient(host,port, ssl)
         try:
             c.login(opts.user, opts.password)
             if opts.move and  not c.folder_exists(opts.move):
                 c.create_folder(opts.move)
-            selected=c.select_folder(opts.folder)
-            msg_count=selected[b'EXISTS']
-            if msg_count>0:
-                log.debug('Folder %s has %d messages', opts.folder, msg_count  )
-                # this is workaround for imapclient 13.0 -  since it has bug in charset in search
-                messages=c._search([b'('+ (imap_filter or b'ALL') +b')'], charset)
-                if not messages:
-                    log.warn('No messages found')
-                res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
-                for msgid, data in   six.iteritems(res):
-                    body=data[b'BODYSTRUCTURE']
-                    msg_info=MailInfo(data)
-                    log.debug('Got message %s', msg_info)
-                    
-                    part_infos=process_parts(body, msg_info, eval_parser, opts.filter, opts.test)
-                    if part_infos:
-                        download(msgid, part_infos, msg_info, opts.file_name,  command= opts.command, client=c, delete=opts.delete_file, **msg_action(opts))
-                    
-                                
-            else:
-                log.info('No messages in folder %s', opts.folder)               
+            folder=opts.folder
+           
+            if opts.threads:
+                pool=Pool(opts.threads, host, port, ssl, opts.user, opts.password, folder)
+            process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts)  
+            
+            if pool:
+                def report():
+                    while True:
+                        log.debug('Pool status - size %d, unfinished %d', pool._queue.qsize(), pool._queue.unfinished_tasks)
+                        time.sleep(5)
+                if logging.getLogger().isEnabledFor(logging.DEBUG):
+                    t=Thread(target=report, name='Debug reporting')
+                    t.daemon=True
+                    t.start()
+                pool.wait_finish()   
+                log.debug('Pool is finished')
         finally:
             if opts.delete or opts.move:
                 c.expunge()
@@ -244,7 +232,50 @@ def main():
     if opts.timeit:
         p('Total Time: %f s' % (time.time()-start))
     
+def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):    
+    def msg_action(opts):
+        action=None
+        params=[]
+        
+        if opts.move:
+            action='move'
+            params.append(opts.move)
+        elif opts.delete:
+            action='delete'
+        elif not opts.seen:
+            action='unseen'
+        return {'message_action':action, 'message_action_args': tuple(params)}
     
+    selected=c.select_folder(folder)
+    msg_count=selected[b'EXISTS']
+    if msg_count>0:
+        log.debug('Folder %s has %d messages', folder, msg_count  )
+        # this is workaround for imapclient 13.0 -  since it has bug in charset in search
+        messages=c._search([b'('+ (imap_filter or b'ALL') +b')'], charset)
+        if not messages:
+            log.warn('No messages found')
+        else:
+            res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
+            for msgid, data in   six.iteritems(res):
+                body=data[b'BODYSTRUCTURE']
+                msg_info=MailInfo(data)
+                log.debug('Got message %s', msg_info)
+                
+                part_infos=process_parts(body, msg_info, eval_parser, opts.filter, opts.test)
+                if part_infos:
+                    if pool:
+                        pool.download(folder=folder, msgid=msgid, part_infos=part_infos, msg_info=msg_info, 
+                                      filename=opts.file_name,  command= opts.command,
+                                 delete=opts.delete_file, **msg_action(opts))
+                    else:
+                        download(msgid, part_infos, msg_info, opts.file_name,  command= opts.command, client=c, 
+                                 delete=opts.delete_file, **msg_action(opts))
+                    
+            
+                        
+    else:
+        log.info('No messages in folder %s', opts.folder) 
+        
 def process_parts(body, msg_info, eval_parser, filter, test=False):
     def msg(part_info):
         msg = u'File "{name}" of type {mime} and size {size} in email "{subject}" from {from}'.format(**msg_info)
