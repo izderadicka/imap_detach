@@ -198,7 +198,7 @@ def main():
     pool=None
     try:
         ssl=not opts.no_ssl
-        c=imapclient.IMAPClient(host,port, ssl)
+        c=imapclient.IMAPClient(host,port,ssl=ssl)
         try:
             c.login(opts.user, opts.password)
             if opts.move and  not c.folder_exists(opts.move):
