@@ -12,6 +12,7 @@ from six.moves.queue import Queue  # @UnresolvedImport
 import socket
 from imap_detach.download import download
 from copy import copy
+from imap_detach.utils import IMAP_client_factory
 
 log=logging.getLogger('pool')
 
@@ -24,7 +25,7 @@ SOFT_ERRORS=(imapclient.IMAPClient.Error, socket.error)
 class Downloader(Thread):
     def __init__(self, queue,host, port, ssl, user, password, folder ):
         super(Downloader,self).__init__(name='Downloader thread')
-        self._client=imapclient.IMAPClient(host,port, ssl=ssl)
+        self._client=IMAP_client_factory(host,port, use_ssl=ssl)
         self._client.login(user, password)
         self.select_folder(folder)
         self.daemon=True

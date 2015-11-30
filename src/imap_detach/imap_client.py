@@ -12,7 +12,7 @@ from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEv
     extract_err_msg
 from imap_detach.filter import IMAPFilterGenerator
 from imap_detach.download import download
-from imap_detach.utils import decode, lower_safe
+from imap_detach.utils import decode, lower_safe, IMAP_client_factory
 from imap_detach.pool import Pool
 from argparse import RawTextHelpFormatter
 import time
@@ -122,6 +122,7 @@ def define_arguments(parser):
     parser.add_argument('-u', '--user', help='User name', required=True)
     parser.add_argument('-p', '--password', help='User password')
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
+    parser.add_argument('--insecure-ssl', action='store_true',  help='Use insecure SSL - certificates are not checked')
     parser.add_argument('--folder', default='INBOX', help='mail folder, default is INBOX')
     parser.add_argument('-f','--file-name', help="Pattern for outgoing files - supports {var} replacement - same variables as for filter")
     parser.add_argument('-c', '--command', help='Command to be executed on downloaded file, supports {var} replacement - same variables as for filter, if output file is not specified, data are sent via standard input ')
@@ -162,7 +163,10 @@ def main():
     
     
     host, port= split_host(opts.host, ssl=not opts.no_ssl)
-    
+    ssl= not opts.no_ssl
+    if opts.insecure_ssl:
+        ssl='insecure'
+    log.debug('SSL status is %s', ssl)
     # test filter parsing
     eval_parser=SimpleEvaluator(DUMMY_INFO)
     filter=opts.filter
@@ -197,9 +201,8 @@ def main():
         
     log.debug('IMAP filter: %s', imap_filter) 
     pool=None
-    try:
-        ssl=not opts.no_ssl
-        c=imapclient.IMAPClient(host,port,ssl=ssl)
+    try:   
+        c=IMAP_client_factory(host,port,use_ssl=ssl)
         try:
             c.login(opts.user, opts.password)
             if opts.move and  not c.folder_exists(opts.move):
@@ -254,7 +257,7 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
     if msg_count>0:
         log.debug('Folder %s has %d messages', folder, msg_count  )
         # this is workaround for imapclient 13.0 -  since it has bug in charset in search
-        messages=c.search(imap_filter, charset)
+        messages=c.search(imap_filter or 'ALL', charset)
         if not messages:
             log.warn('No messages found')
         else:

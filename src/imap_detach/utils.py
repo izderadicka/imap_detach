@@ -1,6 +1,8 @@
 import six
 from email.header import decode_header
 from datetime import datetime, date
+import imapclient
+from backports import ssl
 
 def decode(s):
     if isinstance(s, six.binary_type):
@@ -46,4 +48,15 @@ def to_int(n):
         return int(n[:-1]) * m
     else:
         return int(n)
+
+def IMAP_client_factory(host, port, use_ssl=None):
+    ssl_context=None
+    if use_ssl:
+        ssl_context=imapclient.create_default_context()
     
+    if use_ssl=='insecure':
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+    return imapclient.IMAPClient(host,port,ssl=ssl, ssl_context=ssl_context)
+        
