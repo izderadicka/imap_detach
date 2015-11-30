@@ -211,9 +211,21 @@ class Test(unittest.TestCase):
         self.assertEqual(g.parse(t), 'BEFORE 1-Jan-2017')
         self.assertTrue(p.parse(t))
         
+    def test_list(self):
+        g=IMAPFilterGenerator()
+        t1='to ~= "myself"'
+        self.assertEqual(g.parse(t1, serialize='list'), ['TO', "myself"])
+        
+        t10='! subject ~= "test"'
+        self.assertEqual(g.parse(t10, serialize='list'), ['(','NOT', 'SUBJECT', "test",')'])
         
         
         
+        t="date <= 2015-11-15"
+        self.assertEqual(g.parse(t,  serialize='list'), ['(','OR', 'BEFORE', '15-Nov-2015',  'ON', '15-Nov-2015', ')'])
+        
+        t='(! subject ~= "test" | from ~= "example.com") & ( ! recent |  seen)'
+        self.assertEqual(g.parse(t, serialize = 'list'),['(','(','(','OR', '(' ,'NOT', 'SUBJECT', "test",')', 'FROM', "example.com",')',')', '(','(','OR', '(', 'NOT', 'RECENT',')', 'SEEN',')',')',')'])
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

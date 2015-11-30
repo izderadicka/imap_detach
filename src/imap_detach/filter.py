@@ -5,6 +5,8 @@ from imap_detach.utils import to_datetime, to_imap_date, to_int
 from datetime import datetime, date
 import six
 
+class StringLiteral(six.text_type):
+    pass
 
 class BoolVar(str):
     pass
@@ -27,23 +29,23 @@ class YearVar(SpecialVar):
     
     @isyear
     def equals(self, val):
-        return '(SINCE 1-Jan-%d BEFORE 1-Jan-%d)' % (val, val+1)
+        return ('SINCE', '1-Jan-%d' %val, 'BEFORE',  '1-Jan-%d' % (val+1) )
     
     @isyear
     def smaller(self, val):
-        return 'BEFORE 1-Jan-%d' % val
+        return ['BEFORE', '1-Jan-%d' % val]
     
     @isyear
     def smaller_equal(self, val):
-        return 'BEFORE 1-Jan-%d' % (val+1)
+        return ['BEFORE', '1-Jan-%d' % (val+1)]
     
     @isyear
     def bigger(self,val):
-        return 'SINCE 1-Jan-%d' % (val+1)
+        return ['SINCE', '1-Jan-%d' % (val+1)]
     
     @isyear
     def bigger_equal(self,val):
-        return 'SINCE 1-Jan-%d' % val
+        return ['SINCE',  '1-Jan-%d' % val]
 
 class DateVar(SpecialVar):
     
@@ -57,34 +59,34 @@ class DateVar(SpecialVar):
     @isdate        
     def equals(self,val):
         
-        return "ON %s" % to_imap_date(val)
+        return ["ON", "%s" % to_imap_date(val)]
     
     @isdate
     def smaller(self,val):
         d=to_imap_date(val)
-        return "BEFORE %s" % d
+        return ["BEFORE", d]
     
     @isdate
     def smaller_equal(self,val):
         d=to_imap_date(val)
-        return "(OR BEFORE %s ON %s)" % (d,d)
+        return ("OR", "BEFORE",d, "ON",d)
     
     @isdate
     def bigger(self,val):
         d=to_imap_date(val)
-        return "(OR SINCE %s NOT (ON %s))" % (d,d)
+        return ("OR", "SINCE", d,  "NOT", ( "ON",d))
     
     @isdate
     def bigger_equal(self,val):
         d=to_imap_date(val)
-        return "SINCE %s" % d
+        return ["SINCE", d]
     
 class SizeVar(SpecialVar):
     
     def bigger(self,val):
         if not isinstance(val, int):
             raise ValueError('Need integer value')
-        return 'LARGER %d' % val
+        return ['LARGER',  '%d' % val]
     
     bigger_equal=bigger
     
@@ -92,7 +94,7 @@ class FlagsVar(SpecialVar):
     def equals(self,val):
         if not isinstance(val, six.string_types):
             raise ValueError('Need string value')
-        return 'KEYWORD %s' % val
+        return ['KEYWORD', val]
 
 NOT_IMAP=NotIMAP('')
 
@@ -125,7 +127,7 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
         return self._vars.get(node.text, NOT_IMAP)
     
     def visit_literal(self,node, children):
-        return '"%s"'%children[1]
+        return StringLiteral(children[1])
     
     def visit_number(self, node, children):
         return to_int(node.text)
@@ -155,19 +157,19 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
             
     @binary   
     def visit_equals(self, node, children): 
-        return '%s %s' % (children[0], children[-1])
+        return [children[0], children[-1]]
     
     @binary
     def visit_contains (self, node, children): 
-        return '%s %s' % (children[0], children[-1])
+        return [children[0], children[-1]]
     
     @binary
     def visit_starts (self, node, children): 
-        return '%s %s' % (children[0], children[-1])
+        return [children[0], children[-1]]
     
     @binary
     def visit_ends(self, node, children): 
-        return '%s %s' % (children[0], children[-1])
+        return [children[0], children[-1]]
    
     def visit_expr(self, node, children):
         return children[1]
@@ -194,36 +196,78 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
         if not children[1]:
             return children[0]
             
-        return '(OR %s)' %  ' '.join(children)
+        return tuple([ 'OR'] +children)
     
     def visit_and(self, node, children):
         if not children[1]:
             return children[0]
         remains= list(filter(lambda x: x and not isinstance(x, NotIMAP), children))
         if len(remains)>1:
-            return '(%s)' % (' '.join (remains))
+            return tuple(remains)
         else:
             return remains[0]
     
     def visit_more_and(self, node, children):
-        return ' '.join (filter(lambda x: not isinstance(x, NotIMAP), children))
+        return list(filter(lambda x: not isinstance(x, NotIMAP), children))
         
     def visit_not(self, node, children):
         if isinstance(children[-1], NotIMAP):
             return NOT_IMAP
-        return '(NOT %s)' % children[-1]
+        return ('NOT',  children[-1])
     
     def visit_more_or(self, node, children):
         if not children:
-            return ''
+            return []
         if any(map(lambda x: isinstance(x, NotIMAP),children)):
             return NOT_IMAP
-        return reduce(lambda a,b: '(OR %s %s)' % (a,b), children)
+        return reduce(lambda a,b: ('OR', a, b), children)
     
     def visit_bracketed(self, node, children):
-        return '(%s)'% children[2]
+        return (children[2],)
     
     def generic_visit(self, node, children):
         #print ('GENERIC', node.text, children)
         if children:
             return children[-1]
+        
+    def parse(self, text, pos=0, serialize='string'):
+        r= parsimonious.NodeVisitor.parse(self, text, pos=pos)
+        if not serialize:
+            return r
+        elif serialize == 'string':
+            return string_serializer(r)
+        elif serialize == 'list':
+            return list_serializer(r)
+        
+        raise ValueError('Invalid Serialization')
+    
+def string_serializer(t):
+    if isinstance(t,tuple):
+        return '(%s)' % ' '.join([string_serializer(x) for x in t ])
+    elif isinstance(t, list):
+        return ' '.join([string_serializer(x) for x in t ])
+    elif isinstance(t, StringLiteral):
+        return '"%s"' % t
+    elif isinstance(t, NotIMAP):
+        return ''
+    else:
+        return str(t)
+    
+def list_serializer(t):
+    ret=[]
+    def walk(t):
+        if isinstance(t,tuple):
+            ret.append ('(')
+            [walk(x) for x in t ]
+            ret.append(')')
+        elif isinstance(t, list):
+            [walk(x) for x in t ]
+        elif isinstance(t, StringLiteral):
+            ret.append(t)
+        elif isinstance(t, NotIMAP):
+            pass
+        else:
+            ret.append( str(t))
+    walk(t)
+    return ret
+    

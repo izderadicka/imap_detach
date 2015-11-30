@@ -33,7 +33,7 @@ setup(name='imap_detach',
       author_email='ivan.zderadicka@gmail.com',
       license = 'GPL v3',
       install_requires=['six>=1.10.0',
-                        'imapclient==0.13',  # seems to be still moving target so fixing the version
+                        'imapclient==1.0.0',  # seems to be still moving target so fixing the version
                         'parsimonious>=0.6.2'
                         ],
       provides=['imap_detach'],

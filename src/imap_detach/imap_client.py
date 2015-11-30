@@ -168,7 +168,7 @@ def main():
     filter=opts.filter
     
     try:
-        imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter) if not opts.no_imap_search else ''
+        imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter, serialize='list') if not opts.no_imap_search else None
         _ = eval_parser.parse(filter)
     except ParserSyntaxError as e:
         msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
@@ -182,16 +182,17 @@ def main():
         sys.exit(2)
     
     charset=None    
-    try:
-        imap_filter=imap_filter.encode('ascii')
-    except UnicodeEncodeError:
-        log.warn('Your search contains non-ascii characters, will try UTF-8, but it may not work on some servers')
+    if  imap_filter:
         try:
-            imap_filter=imap_filter.encode('utf-8')
-            charset='UTF-8'
-        except UnicodeEncodeError as e:
-            log.error('Invalid characters in filter: %e',e)
-            sys.exit(3)   
+            [part.encode('ascii') for part in imap_filter]
+        except UnicodeEncodeError:
+            log.warn('Your search contains non-ascii characters, will try UTF-8, but it may not work on some servers')
+            try:
+                [part.encode('utf-8') for part in imap_filter]
+                charset='UTF-8'
+            except UnicodeEncodeError as e:
+                log.error('Invalid characters in filter: %e',e)
+                sys.exit(3)   
         
         
     log.debug('IMAP filter: %s', imap_filter) 
@@ -253,7 +254,7 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
     if msg_count>0:
         log.debug('Folder %s has %d messages', folder, msg_count  )
         # this is workaround for imapclient 13.0 -  since it has bug in charset in search
-        messages=c._search([b'('+ (imap_filter or b'ALL') +b')'], charset)
+        messages=c.search(imap_filter, charset)
         if not messages:
             log.warn('No messages found')
         else:
