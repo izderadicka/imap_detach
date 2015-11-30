@@ -53,7 +53,7 @@ def download_part(msgid, part_info, msg_info, filename, command=None, client=Non
     try:
         cmd=CommandRunner(command, filename, msg_info, delete_file, max_time)
     except ValueError as e:
-        log.error("Cannot download message: %s",e)
+        log.exception("Cannot download message: %s",e)
         return
     
     part=client.fetch(msgid, [part_id])
@@ -98,6 +98,7 @@ class CommandRunner(object):
     def __init__(self, command, file_name, context, delete=False, max_time=60):
         if not (command or file_name):
             raise ValueError('File or command must be specified')
+        file_name, command = decode(file_name), decode(command)
         self._file=None
         self._command=None
         v={v: (escape_path(x) if isinstance(x, six.text_type) else str(x)) for v,x in six.iteritems(context) }
