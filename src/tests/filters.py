@@ -185,7 +185,18 @@ class Test(unittest.TestCase):
         self.assertEqual(g.parse(t), '')
         self.assertTrue(p.parse(t))
         
-    
+    def test_text(self):
+        g=IMAPFilterGenerator(unsafe=True)
+        ctx={'mime':'application/pdf', 'name':'soubor.pdf'}
+        p=SimpleEvaluator(ctx)
+        t='mime="application/pdf" & name ~= "soubor"'
+        self.assertEqual(g.parse(t), '(TEXT "application/pdf" TEXT "soubor")')
+        self.assertTrue(p.parse(t))
+        
+        t='mime^="application" & name $= ".pdf"'
+        self.assertEqual(g.parse(t), '(TEXT "application" TEXT ".pdf")')
+        self.assertTrue(p.parse(t))
+        
     def test_year(self):
         g=IMAPFilterGenerator(unsafe=True)
         ctx={'year':2015}

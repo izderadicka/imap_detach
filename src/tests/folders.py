@@ -40,6 +40,8 @@ class Test(unittest.TestCase):
         self.assertEqual(r, ['INBOX'])
         r=matched_folders(f, ['INBOX*'])
         self.assertEqual(r, ['INBOX'])
+        r=matched_folders(f, ['inbox*'])
+        self.assertEqual(r, ['INBOX'])
         r=matched_folders(f, ['INBOX**'])
         self.assertEqual(r, ['INBOX/processed','INBOX'])
         r=matched_folders(f, ['*'])

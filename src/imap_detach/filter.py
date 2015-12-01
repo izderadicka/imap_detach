@@ -4,6 +4,7 @@ from six.moves import reduce  # @UnresolvedImport
 from imap_detach.utils import to_datetime, to_imap_date, to_int
 from datetime import datetime, date
 import six
+from copy import copy
 
 class StringLiteral(six.text_type):
     pass
@@ -16,6 +17,15 @@ class NotIMAP(str):
 
 class SpecialVar(str):
     pass
+
+
+class TextVar(SpecialVar):
+    def equals(self,  val):
+        return ['TEXT', StringLiteral(str(val))]
+    
+    contains=equals
+    starts=equals
+    ends=equals
 
 class YearVar(SpecialVar):
     def isyear(fn):  # @NoSelf
@@ -115,11 +125,13 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
           'year' : YearVar()
           }
     EXT_VARS={'flags': FlagsVar(),
+              'mime': TextVar(),
+              'name': TextVar()
               }
     
     def __init__(self, unsafe=False):
         self.grammar=grammar()
-        self._vars=IMAPFilterGenerator.VARS
+        self._vars=copy(IMAPFilterGenerator.VARS)
         if unsafe:
             self._vars.update(IMAPFilterGenerator.EXT_VARS)
         
