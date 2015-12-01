@@ -3,6 +3,7 @@ from email.header import decode_header
 from datetime import datetime, date
 import imapclient
 from backports import ssl
+import re
 
 def decode(s):
     if isinstance(s, six.binary_type):
@@ -59,4 +60,33 @@ def IMAP_client_factory(host, port, use_ssl=None):
         ssl_context.verify_mode = ssl.CERT_NONE
         
     return imapclient.IMAPClient(host,port,ssl=use_ssl, ssl_context=ssl_context)
+
+
+def matched_folders(folders, patterns):
+    regs=[]
+    for p in patterns:
+        r=re.sub(r'\?','.',p)
+        r=re.sub(r'(?<!\*)\*(?!\*)','[^/]*',r)
+        r=re.sub(r'\*\*', '.*', r)
+        
+        regs.append(r+'$')
+    def m(f):
+        for r in regs:
+            if re.match(r,f, re.IGNORECASE|re.UNICODE):
+                return True
+            return False
+    return list(filter(m, folders))
+
+def normalize_folders(folders):
+    l=[]
+    for flags,sep,name in folders:
+        if b'\\Noselect' in flags:
+            continue
+        sep=decode(sep)
+        if sep != '/':
+            name=name.replace(sep, '/')
+        l.append(name)
+    return l
+    
+        
         

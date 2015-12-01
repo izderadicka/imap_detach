@@ -12,7 +12,8 @@ from imap_detach.expressions import SimpleEvaluator, ParserSyntaxError, ParserEv
     extract_err_msg
 from imap_detach.filter import IMAPFilterGenerator
 from imap_detach.download import download
-from imap_detach.utils import decode, lower_safe, IMAP_client_factory
+from imap_detach.utils import decode, lower_safe, IMAP_client_factory,\
+    matched_folders, normalize_folders
 from imap_detach.pool import Pool
 from argparse import RawTextHelpFormatter
 import time
@@ -123,7 +124,7 @@ def define_arguments(parser):
     parser.add_argument('-p', '--password', help='User password')
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
     parser.add_argument('--insecure-ssl', action='store_true',  help='Use insecure SSL - certificates are not checked')
-    parser.add_argument('--folder', default='INBOX', help='mail folder, default is INBOX')
+    parser.add_argument('--folder', action='append', help='mail folder(s), can specify more, or pattern with ?, * or **,  default is INBOX')
     parser.add_argument('-f','--file-name', help="Pattern for outgoing files - supports {var} replacement - same variables as for filter")
     parser.add_argument('-c', '--command', help='Command to be executed on downloaded file, supports {var} replacement - same variables as for filter, if output file is not specified, data are sent via standard input ')
     parser.add_argument('-t', '--threads', type=int, help='Download message parts in x separate threads')
@@ -200,18 +201,29 @@ def main():
         
         
     log.debug('IMAP filter: %s', imap_filter) 
+
     pool=None
     try:   
         c=IMAP_client_factory(host,port,use_ssl=ssl)
         try:
             c.login(opts.user, opts.password)
+            if not opts.folder:
+                folders=['INBOX']
+            else:
+                available=c.list_folders()
+                folders= matched_folders(normalize_folders(available), opts.folder)
+                if not folders:
+                    log.warn('No folders patching %s', opts.folder)
+             
+            log.debug('Will process these folders: %s', folders)    
             if opts.move and  not c.folder_exists(opts.move):
                 c.create_folder(opts.move)
-            folder=opts.folder
            
             if opts.threads:
-                pool=Pool(opts.threads, host, port, ssl, opts.user, opts.password, folder)
-            process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts)  
+                pool=Pool(opts.threads, host, port, ssl, opts.user, opts.password)
+            for folder in folders:
+                log.info('Processing folder %s', folder)
+                process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts)  
             
             if pool:
                 if opts.verbose:
@@ -255,6 +267,7 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
     selected=c.select_folder(folder)
     msg_count=selected[b'EXISTS']
     if msg_count>0:
+        uid_validity=selected[b'UIDVALIDITY']
         log.debug('Folder %s has %d messages', folder, msg_count  )
         # this is workaround for imapclient 13.0 -  since it has bug in charset in search
         messages=c.search(imap_filter or 'ALL', charset)
@@ -271,7 +284,7 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
                 if part_infos:
                     if pool:
                         pool.download(folder=folder, msgid=msgid, part_infos=part_infos, msg_info=msg_info, 
-                                      filename=opts.file_name,  command= opts.command,
+                                      filename=opts.file_name,  command= opts.command, uid_validity = uid_validity,
                                  delete=opts.delete_file, **msg_action(opts))
                     else:
                         download(msgid, part_infos, msg_info, opts.file_name,  command= opts.command, client=c, 
@@ -280,7 +293,7 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
             
                         
     else:
-        log.info('No messages in folder %s', opts.folder) 
+        log.info('No messages in folder %s', folder) 
         
 def process_parts(body, msg_info, eval_parser, filter, test=False):
     def msg(part_info):
