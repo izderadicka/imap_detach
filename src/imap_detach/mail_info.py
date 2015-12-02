@@ -3,6 +3,7 @@ from imap_detach.utils import decode, email_decode, lower_safe
 from imapclient.response_types import Address
 
 import logging
+from imap_detach.expressions import TagList
 log=logging.getLogger('mail_info')
 
 def format_addresses(adr):
@@ -39,6 +40,7 @@ class MailInfo(dict):
         self['deleted'] = b'\\Deleted' in flags
         self['recent'] = b'\\Recent' in flags
         self['draft'] = b'\\Draft' in flags
+        self['flags'] = TagList(flags)
         envelope=search_response[b'ENVELOPE']
         #log.debug('ENVELOPE %s', envelope)
         self['subject'] = email_decode(envelope.subject)
@@ -84,4 +86,5 @@ DUMMY_INFO={'to': 'ivan@example.com',
             'month': 10,
             'day' : 27,
             'name': 'test_file.zip',
-            'section': '2.1'}
+            'section': '2.1',
+            'flags': TagList(['$Forwarded'])}
