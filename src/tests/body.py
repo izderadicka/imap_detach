@@ -233,6 +233,19 @@ BODY3 =  ([(b'TEXT', b'HTML', (b'CHARSET', b'iso-8859-2'), None, None, b'QUOTED-
         (b'ATTACHMENT', None), None)], b'MIXED', (b'BOUNDARY', b'----=_NextPart_000_001E_01C51019.1E6EC590'), 
           None, None)
 
+BODY_SINGLE = (b'text',
+               b'plain',
+               (b'charset', b'ISO-8859-1', b'format', b'flowed'),
+               None,
+               None,
+               b'7bit',
+               24,
+               1,
+               None,
+               None,
+               None,
+               None)
+BODY4 = ([(b'text', b'plain', (b'charset', b'ISO-8859-1', b'format', b'flowed'), None, None, b'7bit', 2, 1, None, None, None, None), (b'message', b'rfc822', (b'name', b'Attached Message'), None, None, b'7bit', 647, (b'Wed, 11 Nov 2015 16:38:51 +0100', b'Testik', ((b'Test', None, b'test', b'example.com'),), ((b'Test', None, b'test', b'example.com'),), ((b'Test', None, b'test', b'example.com'),), ((None, None, b'test', b'example.com'),), None, None, None, b'<5643610B.8090504@example.com>'), (b'text', b'plain', (b'charset', b'ISO-8859-1', b'format', b'flowed'), None, None, b'7bit', 24, 1, None, None, None, None), 17, None, (b'attachment', (b'filename', b'Attached Message')), None, None)], b'mixed', (b'boundary', b'------------060103030806030205040203'), None, None, None)
 
 class Test(unittest.TestCase):
 
@@ -259,8 +272,8 @@ class Test(unittest.TestCase):
         for info in walk_structure(BODY2, multipart=True):
             p(info)
             if info.section =='2':
-                self.assertEqual(info.type, 'multipart')
-                self.assertEqual(info.sub_type, 'mixed')
+                self.assertTrue(info.type == 'multipart' or info.type == 'message')
+                self.assertTrue(info.sub_type == 'mixed' or info.sub_type == 'rfc822' )
                 sec_2=True
             if info.section =='2.3':
                 self.assertEqual(info.type, 'image')
@@ -279,7 +292,26 @@ class Test(unittest.TestCase):
                 self.assertEqual(info.sub_type, 'rfc822')
                 sec_2=True
         self.assertTrue(sec_2)
-
+        
+    def test_single_single(self):
+        has_section=False
+        for info in walk_structure(BODY4, multipart=True):
+            p(info)
+            if info.section =='2.1':
+                has_section = True
+        self.assertTrue(has_section)
+    
+    
+    def test_single(self):
+       
+        has_section=False
+        for info in walk_structure(BODY_SINGLE, multipart=True):
+            p(info)
+            if info.section =='1':
+                has_section = True
+                
+        self.assertTrue(has_section)
+            
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

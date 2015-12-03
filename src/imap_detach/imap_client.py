@@ -56,14 +56,17 @@ def walk_structure(body, level='', count=1, multipart=False):
             res.extend(walk_structure(part, next_level() , 1, multipart ))
             count+=1
     elif isinstance(first, six.string_types+(six.binary_type,)):
+        # last condition is WA for servers that do not parse attached message/rfc822 - like gmail some cases
         if lower_safe(first) == 'message' and lower_safe(body[1]) == 'rfc822' and body[8] \
-            and isinstance(body[8], tuple) and isinstance(body[8][0], tuple):
-#             if multipart:
-#                 res.append(extract_mime_info(level, body))
-            res.extend(walk_structure(body[8],level,1, multipart))
+            and isinstance(body[8], tuple) \
+            and not (isinstance(body[8][0], (six.text_type,six.binary_type)) and lower_safe(body[8][0]) == 'attachment'):
+            if multipart:
+                res.append(extract_mime_info(level, body))
+            res.extend(walk_structure(body[8],next_level() if isinstance(body[8][0],  (six.text_type,six.binary_type)) \
+                                      else level,1, multipart))
             
         elif first:
-            res.append(extract_mime_info(level, body))
+            res.append(extract_mime_info(level or str(count), body))
             
     return res
 
@@ -106,8 +109,8 @@ def extract_mime_info(level, body):
         info= MultiBodyInfo(level, 'multipart', body[1], conv_dict(body[2]), conv_disp(body[3]), get(body,4), get(body,5))
     elif body[0]=='text':
         info=TextBodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], body[8], conv_disp(body[9]), get(body,10), get(body,11),  )
-#     elif body[0]=='message' and body[1]=='rfc822':
-#         info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], None, get(body,9), get(body,10) )
+    elif body[0]=='message' and body[1]=='rfc822':
+        info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], None, get(body,9), get(body,10) )
     else:
         info=BodyInfo(level, body[0], body[1], conv_dict(body[2]), body[3], body[4], body[5], int(body[6]), body[7], conv_disp(body[8]), get(body,9), get(body,10) )
         
