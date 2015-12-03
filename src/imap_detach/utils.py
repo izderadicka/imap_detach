@@ -4,6 +4,23 @@ from datetime import datetime, date
 import imapclient
 from backports import ssl
 import re
+from string import Formatter
+
+class AdvancedFormatter(Formatter):
+    def fmt(self, fmt, *args, **kwargs):
+        return self.vformat(fmt, [], kwargs)
+    def get_field(self, field_name, args, kwargs):
+        parts=field_name.split('.')
+        for p in parts:
+            res=[]
+            names=p.split('_')
+            for n in names:
+                if n in kwargs and kwargs[n]:
+                    res.append(kwargs[n])
+            if res:
+                return '_'.join(res), n
+        return '', None
+
 
 def decode(s):
     if isinstance(s, six.binary_type):
@@ -11,6 +28,8 @@ def decode(s):
     return s
 
 def lower_safe(s):
+    if not s:
+        return s
     return decode(s).lower()
 
 

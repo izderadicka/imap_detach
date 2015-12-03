@@ -5,7 +5,7 @@ from quopri import decodestring
 import re
 import os.path
 import shutil
-from imap_detach.utils import decode, lower_safe
+from imap_detach.utils import decode, lower_safe, AdvancedFormatter
 import logging
 import subprocess
 from threading import Timer
@@ -59,6 +59,10 @@ def download_part(msgid, part_info, msg_info, filename, command=None, client=Non
     part=client.fetch(msgid, [part_id])
     part=part[msgid][part_id]
     part=decode_part(part, part_info.encoding)
+    if lower_safe(part_info.type) == 'text':
+        charset=lower_safe(part_info.params.get('charset') )
+        if charset:
+            part=reencode_charset(part, charset)
     
     try:
         cmd.run(part)
@@ -67,7 +71,10 @@ def download_part(msgid, part_info, msg_info, filename, command=None, client=Non
     if command:
         log.debug('Command stdout:\n%s\nCommand stderr:\n%s\n', cmd.stdout, cmd.stderr)
         
-        
+def reencode_charset(part, encoding, encoding_out='UTF-8'):    
+    log.debug('Reencoding text from %s to %s', encoding, encoding_out)
+    text=part.decode(encoding, 'replace')    
+    return text.encode(encoding_out, 'replace')
     
 def decode_part(part, encoding):
     if encoding == 'base64':
@@ -103,8 +110,9 @@ class CommandRunner(object):
         self._command=None
         v={v: (escape_path(x) if isinstance(x, six.text_type) else str(x)) for v,x in six.iteritems(context) }
         dirname=None
+        f=AdvancedFormatter()
         if file_name:
-            fname=file_name.format(**v)
+            fname=f.fmt(file_name,**v)
             if not fname:
                 raise ValueError('No filename available after vars expansion')
             dirname=os.path.dirname(fname)
@@ -118,7 +126,7 @@ class CommandRunner(object):
         v['file_base_name'] = os.path.splitext(os.path.basename(self._file))[0] if self._file else ''
         v['file_dir'] = dirname or ''
         if command:
-            cmd = command.format(**v)
+            cmd = f.fmt(command,**v)
             if not cmd:
                 raise ValueError('No command available after vars expansion')
             self._command = cmd
