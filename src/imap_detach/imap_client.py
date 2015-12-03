@@ -129,7 +129,7 @@ def main(opts):
     filter=opts.filter  # @ReservedAssignment
     
     try:
-        imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter, serialize='list') if not opts.no_imap_search else None
+        imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter, serialize='string') if not opts.no_imap_search else None
         _ = eval_parser.parse(filter)
     except ParserSyntaxError as e:
         msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
@@ -145,10 +145,11 @@ def main(opts):
     charset=None    
     if  imap_filter:
         try:
-            [part.encode('ascii') for part in imap_filter]
+            imap_filter.encode('ascii')
         except UnicodeEncodeError:
             log.warn('Your search contains non-ascii characters, will try UTF-8, but it may not work on some servers')
             try:
+                imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter, serialize='list')
                 [part.encode('utf-8') for part in imap_filter]
                 charset='UTF-8'
             except UnicodeEncodeError as e:
