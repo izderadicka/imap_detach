@@ -255,9 +255,11 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
     
 def string_serializer(t):
     if isinstance(t,tuple):
-        return '(%s)' % ' '.join([string_serializer(x) for x in t ])
+        l=list(filter(lambda x:x,[string_serializer(x) for x in t ]))
+        return '(%s)' % ' '.join(l) if l else ''
     elif isinstance(t, list):
-        return ' '.join([string_serializer(x) for x in t ])
+        l=list(filter(lambda x:x,[string_serializer(x) for x in t ]))
+        return ' '.join(l)
     elif isinstance(t, StringLiteral):
         return '"%s"' % t
     elif isinstance(t, NotIMAP):
@@ -270,8 +272,11 @@ def list_serializer(t):
     def walk(t):
         if isinstance(t,tuple):
             ret.append ('(')
-            [walk(x) for x in t ]
-            ret.append(')')
+            x=[walk(x) for x in t ]
+            if ret[-1]=='(':
+                ret.pop()
+            else:
+                ret.append(')')
         elif isinstance(t, list):
             [walk(x) for x in t ]
         elif isinstance(t, StringLiteral):
@@ -282,4 +287,4 @@ def list_serializer(t):
             ret.append( str(t))
     walk(t)
     return ret
-    
+

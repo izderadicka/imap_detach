@@ -106,6 +106,21 @@ def normalize_folders(folders):
             name=name.replace(sep, '/')
         l.append(name)
     return l
+
+def smart_join(l):
+    l=list(map(lambda i: i.encode('UTF-8') if isinstance(i, six.text_type) else i, l))
+    res=[]
+    for i,p in enumerate(l):
+        if p==b'(':
+            res.append(p)
+        elif p==b')' and res and res[-1]==b' ':
+            res.pop()
+        elif i <len(l)-1:
+            res.extend([p, b' '])
+        else:
+            res.append(p)
+    return b''.join(res)
+    
     
         
         

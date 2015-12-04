@@ -162,6 +162,9 @@ def main(opts):
     pool=None
     try:   
         c=IMAP_client_factory(host,port,use_ssl=ssl)
+        if not c.has_capability('imap4rev1'):
+            log.error('This server is not compatible with IMAP4rev1!')
+            sys.exit(4)
         try:
             c.login(opts.user, opts.password)
             if not opts.folder:

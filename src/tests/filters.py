@@ -1,6 +1,7 @@
 import unittest
 from imap_detach.expressions import SimpleEvaluator, TagList
 from imap_detach.filter import IMAPFilterGenerator
+from imap_detach.utils import smart_join
 from datetime import datetime
 
 
@@ -237,7 +238,23 @@ class Test(unittest.TestCase):
         
         t='(! subject ~= "test" | from ~= "example.com") & ( ! recent |  seen)'
         self.assertEqual(g.parse(t, serialize = 'list'),['(','(','(','OR', '(' ,'NOT', 'SUBJECT', "test",')', 'FROM', "example.com",')',')', '(','(','OR', '(', 'NOT', 'RECENT',')', 'SEEN',')',')',')'])
-
+        
+    def test_notimap(self):
+        g=IMAPFilterGenerator()
+        ctx={'mime':'text/plain', 'date': datetime(2015,10,13), 'year':2015, 'subject':'mako','section':'1.1'}
+        p=SimpleEvaluator(ctx)
+        t='(section="1" | section~="1.")'
+        self.assertEqual(g.parse(t), '')
+        self.assertEqual(g.parse(t, serialize='list'), [])
+        self.assertTrue(p.parse(t))
+        t='mime="text/plain" & year=2015 & ! subject^="re:" & (section="1" | section~="1.")'    
+        self.assertEqual(g.parse(t), '(SINCE 1-Jan-2015 BEFORE 1-Jan-2016) (NOT SUBJECT "re:")')
+        self.assertEqual(g.parse(t, serialize='list'), ['(','SINCE', '1-Jan-2015', 'BEFORE',  '1-Jan-2016', ')', '(', 'NOT', 'SUBJECT', "re:", ')'])
+        self.assertTrue(p.parse(t))
+        
+    def test_join(self):
+        self.assertEqual(smart_join(['TO', "myself"]), b'TO myself')
+        
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
