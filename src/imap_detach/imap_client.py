@@ -215,7 +215,7 @@ def main(opts):
    
     
     try:
-        imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter, serialize='string') if not opts.no_imap_search else None
+        imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(opts.filter, serialize='string') if not opts.no_imap_search else None
         _ = eval_parser.parse(opts.filter)
     except ParserSyntaxError as e:
         msg = "Invalid syntax of filter: %s" %extract_err_msg(e)

@@ -78,7 +78,7 @@ def IMAP_client_factory(host, port, use_ssl=None):
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
         
-    return imapclient.IMAPClient(host,port,ssl=use_ssl, ssl_context=ssl_context)
+    return imapclient.IMAPClient(host,port,ssl=use_ssl, ssl_context=ssl_context, timeout=60)
 
 
 def matched_folders(folders, patterns):
