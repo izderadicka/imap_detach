@@ -20,8 +20,8 @@ def download(msgid, part_infos, msg_info, filename, command=None, client=None, d
              message_action=None, message_action_args=None):
         def check_seen():
             res=client.get_flags(msgid)
-            flags=res[msgid]
-            return b'\\Seen' in flags
+            flags=res.get(msgid,)
+            return b'\\Seen' in flags if flags else False
         
         seen=check_seen()
         for part_info in part_infos:
