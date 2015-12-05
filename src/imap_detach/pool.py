@@ -81,16 +81,18 @@ class Pool(object):
         self._threads=[]
         self._queue = Queue(maxsize=1000)
         count=0
-        while len(self._threads) < threads or count > 3* threads:
+        while len(self._threads) < threads and count < 3* threads:
             try:
+                count+=1
                 w=Downloader(self._queue, host, port, ssl, user, password)
                 w.start()
                 self._threads.append(w)
             except SOFT_ERRORS as e:
-                log.warn('Cannot create downloder thread')
+                log.warn('Cannot create downloder thread: %s', e)
+                
         if len(self._threads) != threads:
-            log.error('Cannot create enough workers: %s', e)
-            raise Pool.Error('Cannot create enough workers: %s', e)
+            log.error('Cannot create enough workers')
+            raise Pool.Error('Cannot create enough workers')
         
     def wait_finish(self):
         self._queue.join()
