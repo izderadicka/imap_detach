@@ -1,2 +1,4 @@
 eclipse.preferences.version=1
+encoding//lib/python3.4/site-packages/daemon/__init__.py=utf-8
+encoding//lib/python3.4/site-packages/daemon/daemon.py=utf-8
 encoding//src/tests/decoding.py=utf-8

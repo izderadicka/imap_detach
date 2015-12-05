@@ -5,10 +5,12 @@ from six import print_ as p
 import sys
 import logging
 from imap_detach.mail_info import DUMMY_INFO
-from imap_detach.imap_client import main as client_main
+from imap_detach.imap_client import main as client_main, monitor as client_daemon
 from argparse import RawTextHelpFormatter
 import time
 import imap_detach
+import os
+import daemon
 
 log=logging.getLogger('cmd')
 
@@ -45,6 +47,8 @@ def define_arguments(parser):
     parser.add_argument('--timeit', action="store_true", help="Will measure time tool is running and print it at the end" )
     parser.add_argument('--no-imap-search', action="store_true", help="Will not use IMAP search - slow, but will assure exact filter match on any server")
     parser.add_argument('--unsafe-imap-search', action="store_true", help="Advanced IMAP search features, requiring full IMAPv4 compliance, which are supported only by some servers (dovecot)")
+    parser.add_argument('-d', '--daemon', action="store_true", help="Runs as daemon on selected folder, monitors for new messages and processes them") 
+    parser.add_argument('--false-daemon', action="store_true", help="False deamon - runs in foreground, logs to stderr - usefull only for debugging daemon") 
     parser.add_argument('--version', action='version', version='%s' % imap_detach.__version__)
 def extra_help():
     lines=[]
@@ -55,21 +59,50 @@ def extra_help():
     
     return ('\n'.join(lines))
 
+
+def init_logging(opts, stream):
+    lf_format="%(asctime)s %(levelname)s %(name)s %(message)s"    
+    if opts.debug:
+       
+        if opts.log_file:
+            logging.basicConfig(level=logging.DEBUG, format=lf_format, filename=opts.log_file)
+        else:
+            logging.basicConfig(level=logging.DEBUG, stream=stream)
+    elif opts.verbose:
+        if opts.log_file:
+            logging.basicConfig(level=logging.INFO, format=lf_format, filename=opts.log_file)
+        else:
+            logging.basicConfig(level=logging.INFO, format="%(message)s", stream=stream)
+    else:
+        if opts.log_file:
+            logging.basicConfig(level=logging.ERROR, format=lf_format, filename=opts.log_file)
+        else:
+            logging.basicConfig(level=logging.ERROR, stream=stream)
+
 def main():
     start=time.time()
     parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
     opts=parser.parse_args()
     
-    if opts.debug:
-        logging.basicConfig(level=logging.DEBUG, filename=opts.log_file)
-    elif opts.verbose:
-        logging.basicConfig(level=logging.INFO, format="%(message)s", filename=opts.log_file)
+    if opts.daemon or opts.false_daemon:
+        opts.timeit=False
+        if opts.folder and len(opts.folder)>1:
+            p('Can specify only one folder in daemon mode', file=sys.stderr)
+            sys.exit(5)
+        if opts.false_daemon:
+            init_logging(opts, stream=sys.stderr)
+            client_daemon(opts)
+        else:
+            with daemon.DaemonContext(initgroups=False): 
+                # consider using pid file? 
+                # The variable $XDG_RUNTIME_DIR defines it's location, although it has no default.
+                # The most common fallback (if the variable is unset) is /tmp/service-$USER.id
+                init_logging(opts, open(os.devnull))
+                client_daemon(opts)
     else:
-        logging.basicConfig(level=logging.ERROR, stream=sys.stderr)
-    
-    
-    client_main(opts)
+        init_logging(opts, sys.stderr)
+        client_main(opts)
         
     if opts.timeit:
         p('Total Time: %f s' % (time.time()-start))

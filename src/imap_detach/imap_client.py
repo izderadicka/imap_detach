@@ -23,7 +23,7 @@ imaplib._MAXLINE = 100000
 log=logging.getLogger('imap_client')
 
 
-def split_host(host, ssl=True):
+def split_host(host, ssl=True, insecure=False):
     port = 993 if ssl else 143
     host_list=host.split(':')
     if len(host_list)>2:
@@ -31,7 +31,9 @@ def split_host(host, ssl=True):
     if len(host_list)>1:
         port=int(host_list[1])
     server=host_list[0]
-    return server, port
+    if insecure:
+        ssl='insecure'
+    return server, port, ssl
 
 
 def walk_structure(body, level='', count=1, multipart=False):
@@ -116,21 +118,105 @@ def extract_mime_info(level, body):
         
     return info
 
-
-
-def main(opts):
-    host, port= split_host(opts.host, ssl=not opts.no_ssl)
-    ssl= not opts.no_ssl
-    if opts.insecure_ssl:
-        ssl='insecure'
+def monitor(opts):
+    host, port,ssl= split_host(opts.host, ssl=not opts.no_ssl, insecure=opts.insecure_ssl)
     log.debug('SSL status is %s', ssl)
     # test filter parsing
     eval_parser=SimpleEvaluator(DUMMY_INFO)
-    filter=opts.filter  # @ReservedAssignment
+    msg_filter=opts.filter  # @ReservedAssignment
+    
+    try:
+        _ = eval_parser.parse(msg_filter)
+    except ParserSyntaxError as e:
+        msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
+        log.error(msg)
+        sys.exit(1)
+    except ParserEvalError as e:
+        msg = "Invalid semantics of filter: %s" % extract_err_msg(e)
+        log.error(msg)
+        sys.exit(2)
+    try:    
+        c=IMAP_client_factory(host,port,use_ssl=ssl)
+    except Exception:
+        log.exception('Cannot connect client')
+        sys.exit(3)
+        
+    if not c.has_capability('imap4rev1'):
+        log.error('This server is not compatible with IMAP4rev1!')
+        sys.exit(4)
+    
+    if not c.has_capability('IDLE'):
+        log.error('IDLE extension is needed for daemon mode')
+        sys.exit(4)
+        
+    try:
+        c.login(opts.user, opts.password)
+    except Exception:
+        log.exception('Cannot login')
+        sys.exit(3)
+        
+            
+    if not opts.folder:
+        folder='INBOX'
+    else:
+        folder=opts.folder[0]
+        
+    try:
+        stat= c.select_folder(folder)
+    except Exception:
+        log.exception('Cannot login')
+        sys.exit(3)
+        
+    uid_validity=stat[b'UIDVALIDITY']    
+    last_uid=stat.get(b'UIDNEXT',0) -1
+    
+    assert last_uid>0
+    pool=Pool(1, host, port, ssl, opts.user, opts.password)    
+    while True:
+        
+        r=c.idle()
+        log.debug('starting IDLE: %s',r)
+        start=time.time()
+        to=60*29  # as per rfc 2177 idle should be reissued every 29 minutes, otherwise client might be set inactive
+        res=[]
+        while to>0:
+            res=c.idle_check(to)
+            if not res:
+                to-=time.time()-start
+            else:
+                log.debug('IDLE response: %s', res)
+                change=False
+                for p in res:
+                    if len(p)==2 and isinstance(p[1], (six.binary_type, six.text_type)) and lower_safe(p[1])=='exists':
+                        size=int(p[0])
+                        log.debug('Folder changes: %d', size)
+                        change=True
+                        break
+                if change:
+                    break
+        c.idle_done()
+        new_messages=c.search('UID %d:*'%(last_uid+1))
+        new_messages=sorted(filter(lambda x: x>last_uid, new_messages))
+        if new_messages:
+            log.debug('New messages: %s', new_messages)
+            fetch_and_process(c, new_messages, folder, uid_validity, opts, eval_parser, pool)
+            last_uid = max(new_messages)
+        
+    pool.wait_finish()   
+        
+    
+        
+
+def main(opts):
+    host, port,ssl= split_host(opts.host, ssl=not opts.no_ssl, insecure=opts.insecure_ssl)
+    log.debug('SSL status is %s', ssl)
+    # test filter parsing
+    eval_parser=SimpleEvaluator(DUMMY_INFO)
+   
     
     try:
         imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter, serialize='string') if not opts.no_imap_search else None
-        _ = eval_parser.parse(filter)
+        _ = eval_parser.parse(opts.filter)
     except ParserSyntaxError as e:
         msg = "Invalid syntax of filter: %s" %extract_err_msg(e)
         log.error(msg)
@@ -149,7 +235,7 @@ def main(opts):
         except UnicodeEncodeError:
             log.warn('Your search contains non-ascii characters, will try UTF-8, but it may not work on some servers')
             try:
-                imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(filter, serialize='list')
+                imap_filter=IMAPFilterGenerator(opts.unsafe_imap_search).parse(opts.filter, serialize='list')
                 [part.encode('utf-8') for part in imap_filter]
                 charset='UTF-8'
             except UnicodeEncodeError as e:
@@ -206,8 +292,10 @@ def main(opts):
     except Exception:
         log.exception('Runtime Error')     
         sys.exit(4)
-    
-def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):    
+
+
+
+def fetch_and_process(c, messages, folder, uid_validity, opts, eval_parser, pool):
     def msg_action(opts):
         action=None
         params=[]
@@ -221,6 +309,23 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
             action='unseen'
         return {'message_action':action, 'message_action_args': tuple(params)}
     
+    res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
+    for msgid, data in   six.iteritems(res):
+        body=data[b'BODYSTRUCTURE']
+        msg_info=MailInfo(folder,data)
+        log.debug('Got message %s', msg_info)
+        
+        part_infos=process_parts(body, msg_info, eval_parser, opts.filter, opts.test)
+        if part_infos:
+            if pool:
+                pool.download(folder=folder, msgid=msgid, part_infos=part_infos, msg_info=msg_info, 
+                              filename=opts.file_name,  command= opts.command, uid_validity = uid_validity,
+                         delete=opts.delete_file, **msg_action(opts))
+            else:
+                download(msgid, part_infos, msg_info, opts.file_name,  command= opts.command, client=c, 
+                         delete=opts.delete_file, **msg_action(opts))
+    
+def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):    
     selected=c.select_folder(folder)
     msg_count=selected[b'EXISTS']
     if msg_count>0:
@@ -231,26 +336,10 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
         if not messages:
             log.warn('No messages found')
         else:
-            log.debug('Found %d messages in folder %s', len(messages), folder)
             messages.sort() # just to be sure messages are processed from oldest
-            res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
-            for msgid, data in   six.iteritems(res):
-                body=data[b'BODYSTRUCTURE']
-                msg_info=MailInfo(folder,data)
-                log.debug('Got message %s', msg_info)
-                
-                part_infos=process_parts(body, msg_info, eval_parser, opts.filter, opts.test)
-                if part_infos:
-                    if pool:
-                        pool.download(folder=folder, msgid=msgid, part_infos=part_infos, msg_info=msg_info, 
-                                      filename=opts.file_name,  command= opts.command, uid_validity = uid_validity,
-                                 delete=opts.delete_file, **msg_action(opts))
-                    else:
-                        download(msgid, part_infos, msg_info, opts.file_name,  command= opts.command, client=c, 
-                                 delete=opts.delete_file, **msg_action(opts))
-                    
+            log.debug('Found %d messages in folder %s', len(messages), folder)
             
-                        
+            fetch_and_process(c, messages, folder, uid_validity, opts, eval_parser, pool)
     else:
         log.info('No messages in folder %s', folder) 
         

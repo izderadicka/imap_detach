@@ -34,7 +34,8 @@ setup(name='imap_detach',
       license = 'GPL v3',
       install_requires=['six>=1.10.0',
                         'imapclient==1.0.0',  # seems to be still moving target so fixing the version
-                        'parsimonious>=0.6.2'
+                        'parsimonious>=0.6.2',
+                        'python-daemon>=2.1.0'
                         ],
       provides=['imap_detach'],
       keywords=['email', 'IMAP', 'attachment'],
