@@ -22,12 +22,13 @@ def format_addresses(adr):
     raise ValueError('Invalid address type')
     
 
-def format_mime(type, sub_type):
+def format_mime(type, sub_type):  # @ReservedAssignment
     return type+'/'+sub_type
 
 class MailInfo(dict):
-    def __init__(self, search_response, part_info=None):
+    def __init__(self, folder, search_response, part_info=None):
         super(MailInfo,self).__init__()
+        self['folder']=folder
         date= search_response[b'INTERNALDATE']
         self['date'] = date
         self['year'] = date.year
@@ -87,4 +88,5 @@ DUMMY_INFO={'to': 'ivan@example.com',
             'day' : 27,
             'name': 'test_file.zip',
             'section': '2.1',
-            'flags': TagList(['$Forwarded'])}
+            'flags': TagList(['$Forwarded']),
+            'folder':'INBOX'}

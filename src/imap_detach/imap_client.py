@@ -225,16 +225,18 @@ def process_folder(c, pool, folder, imap_filter, charset, eval_parser, opts):
     msg_count=selected[b'EXISTS']
     if msg_count>0:
         uid_validity=selected[b'UIDVALIDITY']
-        log.debug('Folder %s has %d messages', folder, msg_count  )
+        log.debug('Folder %s has %d messages in total', folder, msg_count  )
         # this is workaround for imapclient 13.0 -  since it has bug in charset in search
         messages=c.search(imap_filter or 'ALL', charset)
         if not messages:
             log.warn('No messages found')
         else:
+            log.debug('Found %d messages in folder %s', len(messages), folder)
+            messages.sort() # just to be sure messages are processed from oldest
             res=c.fetch(messages, [b'INTERNALDATE', b'FLAGS', b'RFC822.SIZE', b'ENVELOPE', b'BODYSTRUCTURE'])
             for msgid, data in   six.iteritems(res):
                 body=data[b'BODYSTRUCTURE']
-                msg_info=MailInfo(data)
+                msg_info=MailInfo(folder,data)
                 log.debug('Got message %s', msg_info)
                 
                 part_infos=process_parts(body, msg_info, eval_parser, opts.filter, opts.test)
