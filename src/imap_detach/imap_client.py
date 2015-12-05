@@ -286,7 +286,13 @@ def main(opts):
                 log.debug('Pool is finished')
         finally:
             if opts.delete or opts.move:
-                c.expunge()
+                try:
+                    c.expunge()
+                    log.debug("Expunge folder")
+                except Exception:
+                    log.exception('Expunge Failed!')
+                
+                
             c.logout()
             
     except Exception:
