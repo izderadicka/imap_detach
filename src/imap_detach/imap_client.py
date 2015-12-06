@@ -201,8 +201,11 @@ def main(opts):
         finally:
             if opts.delete or opts.move:
                 try:
-                    c.expunge()
-                    log.debug("Expunge folder")
+                    c.expunge() # last one shoyld be selected
+                    for f in folders[:-1]:
+                        c.select_folder(f)
+                        c.expunge()
+                    log.debug("Expunge folders")
                 except Exception:
                     log.exception('Expunge Failed!')
                 
