@@ -5,10 +5,10 @@
 FROM ubuntu:trusty
 MAINTAINER Charles Lindsay <chaz@yorba.org>
 
-ENV http_proxy http://emea-proxy.uk.oracle.com:80
+#ENV http_proxy http://emea-proxy.uk.oracle.com:80
 
 RUN apt-get update
-RUN apt-get upgrade
+RUN apt-get -y upgrade
 
 # Allow dovecot install to succeed (see
 # https://github.com/dotcloud/docker/issues/1024)
