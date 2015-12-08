@@ -10,10 +10,10 @@ class AdvancedFormatter(Formatter):
     def fmt(self, fmt, *args, **kwargs):
         return self.vformat(fmt, [], kwargs)
     def get_field(self, field_name, args, kwargs):
-        parts=field_name.split('.')
+        parts=field_name.split('|')
         for p in parts:
             res=[]
-            names=p.split('_')
+            names=p.split('+')
             for n in names:
                 if n in kwargs and kwargs[n]:
                     res.append(kwargs[n])

@@ -31,7 +31,7 @@ def define_arguments(parser):
     parser.add_argument('--no-ssl', action='store_true',  help='Do not use SSL, use plain unencrypted connection')
     parser.add_argument('--insecure-ssl', action='store_true',  help='Use insecure SSL - certificates are not checked')
     parser.add_argument('--folder', action='append', help='mail folder(s), can specify more, or pattern with ?, * or **,  default is INBOX')
-    parser.add_argument('-f','--file-name', help="Pattern for outgoing files - supports {var} replacement - same variables as for filter, but also can combine them {avar.bvar} means avar or bvar - if avar is empty or none then bvar, {avar_bvar} is content of both join by _ - useful is combined with . - {avar.bvar_cvar}")
+    parser.add_argument('-f','--file-name', help="Pattern for outgoing files - supports {var} replacement - same variables as for filter, but also can combine them {avar|bvar} means avar or bvar - if avar is empty or none then bvar, {avar+bvar} is content of both join by _ - useful when combined with | - {avar|bvar+cvar}")
     parser.add_argument('-c', '--command', help='Command to be executed on downloaded file, supports {var} replacement - same variables and combination as for filter (plus few more variables), if output file is not specified, data are sent via standard input ')
     parser.add_argument('-t', '--threads', type=int, help='Download message parts in x separate threads')
     parser.add_argument('-v', '--verbose', action="store_true", help= 'Verbose messaging')
