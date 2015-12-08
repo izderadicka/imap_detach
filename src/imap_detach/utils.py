@@ -7,7 +7,7 @@ import re
 from string import Formatter
 
 class AdvancedFormatter(Formatter):
-    def fmt(self, fmt, *args, **kwargs):
+    def format(self, fmt, *args, **kwargs):
         return self.vformat(fmt, [], kwargs)
     def get_field(self, field_name, args, kwargs):
         parts=field_name.split('|')

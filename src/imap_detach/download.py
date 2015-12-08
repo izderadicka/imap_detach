@@ -112,7 +112,7 @@ class CommandRunner(object):
         dirname=None
         f=AdvancedFormatter()
         if file_name:
-            fname=f.fmt(file_name,**v)
+            fname=f.format(file_name,**v)
             if not fname:
                 raise ValueError('No filename available after vars expansion')
             dirname=os.path.dirname(fname)
@@ -126,7 +126,7 @@ class CommandRunner(object):
         v['file_base_name'] = os.path.splitext(os.path.basename(self._file))[0] if self._file else ''
         v['file_dir'] = dirname or ''
         if command:
-            cmd = f.fmt(command,**v)
+            cmd = f.format(command,**v)
             if not cmd:
                 raise ValueError('No command available after vars expansion')
             self._command = cmd
