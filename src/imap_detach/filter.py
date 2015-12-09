@@ -235,7 +235,7 @@ class IMAPFilterGenerator(parsimonious.NodeVisitor):
         return reduce(lambda a,b: ('OR', a, b), children)
     
     def visit_bracketed(self, node, children):
-        return (children[2],)
+        return (children[2],) if not isinstance(children[2], NotIMAP) else NOT_IMAP
     
     def generic_visit(self, node, children):
         #print ('GENERIC', node.text, children)

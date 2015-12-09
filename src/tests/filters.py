@@ -255,6 +255,29 @@ class Test(unittest.TestCase):
     def test_join(self):
         self.assertEqual(smart_join(['TO', "myself"]), b'TO myself')
         
+    def test_or(self):
+        g=IMAPFilterGenerator()
+        ctx={'mime':'application/pdf', 'size': 200*1024, 'from':'test@example.com', 'cc':'','subject':'mako','section':'1.1'}
+        p=SimpleEvaluator(ctx)
+        
+        t='from~="test" | mime="application/pdf"'
+        self.assertEqual(g.parse(t), '')
+        self.assertTrue(p.parse(t))
+        
+        t='from~="test" | (mime="application/pdf")'
+        self.assertEqual(g.parse(t), '')
+        self.assertTrue(p.parse(t))
+        t='(mime="application/pdf") | from~="test"'
+        self.assertEqual(g.parse(t), '')
+        self.assertTrue(p.parse(t))
+        t='(mime="application/pdf") | (from~="test")'
+        self.assertEqual(g.parse(t), '')
+        self.assertTrue(p.parse(t))
+        
+        t='(mime="application/pdf" & ! from ~= "siska" & ! cc~="nekdo" & size>100k & size<1M) | (mime="image/png")'
+        self.assertEqual(g.parse(t), '')
+        self.assertTrue(p.parse(t))
+        
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
