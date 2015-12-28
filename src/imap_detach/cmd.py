@@ -55,20 +55,33 @@ def extra_help():
     
     return ('\n'.join(lines))
 
+
+def init_logging(opts, stream):
+    lf_format="%(asctime)s %(levelname)s %(name)s %(message)s"    
+    if opts.debug:
+       
+        if opts.log_file:
+            logging.basicConfig(level=logging.DEBUG, format=lf_format, filename=opts.log_file)
+        else:
+            logging.basicConfig(level=logging.DEBUG, stream=stream)
+    elif opts.verbose:
+        if opts.log_file:
+            logging.basicConfig(level=logging.INFO, format=lf_format, filename=opts.log_file)
+        else:
+            logging.basicConfig(level=logging.INFO, format="%(message)s", stream=stream)
+    else:
+        if opts.log_file:
+            logging.basicConfig(level=logging.ERROR, format=lf_format, filename=opts.log_file)
+        else:
+            logging.basicConfig(level=logging.ERROR, stream=stream)
+
 def main():
     start=time.time()
     parser=argparse.ArgumentParser(epilog=extra_help(), formatter_class=RawTextHelpFormatter)
     define_arguments(parser)
     opts=parser.parse_args()
     
-    if opts.debug:
-        logging.basicConfig(level=logging.DEBUG, filename=opts.log_file)
-    elif opts.verbose:
-        logging.basicConfig(level=logging.INFO, format="%(message)s", filename=opts.log_file)
-    else:
-        logging.basicConfig(level=logging.ERROR, stream=sys.stderr)
-    
-    
+    init_logging(opts, sys.stderr)
     client_main(opts)
         
     if opts.timeit:
