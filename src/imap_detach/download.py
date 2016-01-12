@@ -24,12 +24,15 @@ def download(msgid, part_infos, msg_info, filename, command=None, client=None, d
             return b'\\Seen' in flags if flags else False
         
         seen=check_seen()
-        for part_info in part_infos:
-            try:
-                msg_info.update_part_info(part_info)
-                download_part(msgid, part_info, msg_info, filename, command, client, delete, max_time)
-            except Exception:
-                log.exception('Download of message id %d: "%s" from %s received %s,  part %s failed', msgid, msg_info['subject'], msg_info['from'], msg_info['date'], part_info.section)
+        if  filename or  command:
+            for part_info in part_infos:
+                try:
+                    msg_info.update_part_info(part_info)
+                    download_part(msgid, part_info, msg_info, filename, command, client, delete, max_time)
+                except Exception:
+                    log.exception('Download of message id %d: "%s" from %s received %s,  part %s failed', msgid, msg_info['subject'], msg_info['from'], msg_info['date'], part_info.section)
+        else:
+            log.debug('No parts actions')
         try:
             if message_action == 'unseen' and not seen:
                 log.debug("Marking message id: %s unseen", msgid)
