@@ -102,7 +102,7 @@ def normalize_folders(folders):
         if b'\\Noselect' in flags:
             continue
         sep=decode(sep)
-        if sep != '/':
+        if sep and sep != '/':
             name=name.replace(sep, '/')
         l.append(name)
     return l
